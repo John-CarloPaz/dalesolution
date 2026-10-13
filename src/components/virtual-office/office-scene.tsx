@@ -86,10 +86,10 @@ function SceneContent({
         dampingFactor={0.05}
       />
 
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={1.2} />
       <directionalLight
         position={[15, 20, 10]}
-        intensity={0.8}
+        intensity={1.5}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -100,8 +100,10 @@ function SceneContent({
         shadow-camera-top={25}
         shadow-camera-bottom={-25}
       />
-      <pointLight position={[-10, 8, -10]} intensity={0.3} color="#6366f1" />
-      <pointLight position={[10, 8, 5]} intensity={0.2} color="#3b82f6" />
+      <directionalLight position={[-10, 15, -5]} intensity={0.6} />
+      <pointLight position={[-10, 8, -10]} intensity={0.6} color="#6366f1" />
+      <pointLight position={[10, 8, 5]} intensity={0.5} color="#3b82f6" />
+      <pointLight position={[0, 10, 0]} intensity={0.4} color="#ffffff" />
 
       <Floor />
 
@@ -125,7 +127,7 @@ function SceneContent({
         />
       ))}
 
-      <fog attach="fog" args={['#0a0a1a', 35, 65]} />
+      <fog attach="fog" args={['#1a1a2e', 50, 90]} />
     </>
   );
 }
@@ -134,7 +136,7 @@ function Floor() {
   return (
     <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
       <planeGeometry args={[50, 50]} />
-      <meshStandardMaterial color="#1a1a2e" roughness={0.9} />
+      <meshStandardMaterial color="#2a2a45" roughness={0.8} />
     </mesh>
   );
 }
@@ -147,8 +149,8 @@ function ZoneArea({ zone }: { zone: OfficeZone }) {
       <meshStandardMaterial
         color={color}
         transparent
-        opacity={0.08}
-        roughness={0.8}
+        opacity={0.2}
+        roughness={0.7}
       />
     </mesh>
   );
@@ -163,7 +165,7 @@ function ZoneLabel({ zone }: { zone: OfficeZone }) {
       color={zone.color}
       anchorX="center"
       anchorY="middle"
-      fillOpacity={0.6}
+      fillOpacity={0.9}
     >
       {zone.name.toUpperCase()}
     </Text>
@@ -172,7 +174,7 @@ function ZoneLabel({ zone }: { zone: OfficeZone }) {
 
 function OfficeWalls() {
   const wallMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#252545', transparent: true, opacity: 0.4 }),
+    () => new THREE.MeshStandardMaterial({ color: '#3a3a60', transparent: true, opacity: 0.55 }),
     []
   );
 
@@ -213,7 +215,7 @@ function Desk({ position, rotation = 0 }: { position: [number, number, number]; 
     <group position={position} rotation={[0, rotation, 0]}>
       {/* Desktop */}
       <RoundedBox args={[1.8, 0.08, 0.9]} position={[0, 0.75, 0]} radius={0.02} castShadow>
-        <meshStandardMaterial color="#2a2a4a" roughness={0.3} />
+        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
       </RoundedBox>
       {/* Legs */}
       {[[-0.8, 0.375, -0.35], [0.8, 0.375, -0.35], [-0.8, 0.375, 0.35], [0.8, 0.375, 0.35]].map(
@@ -271,21 +273,21 @@ function OfficeDecorations() {
 
       {/* Reception desk */}
       <RoundedBox args={[4, 1.1, 1]} position={[0, 0.55, 10]} radius={0.05} castShadow>
-        <meshStandardMaterial color="#2a2a4a" roughness={0.3} />
+        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
       </RoundedBox>
 
       {/* Break room table */}
       <RoundedBox args={[3, 0.08, 1.5]} position={[14, 0.75, -4]} radius={0.03} castShadow>
-        <meshStandardMaterial color="#2a2a4a" roughness={0.3} />
+        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
       </RoundedBox>
       {/* Break room couch */}
       <RoundedBox args={[2.5, 0.5, 0.8]} position={[14, 0.35, -7]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#4a3b6b" roughness={0.7} />
+        <meshStandardMaterial color="#6a5b8b" roughness={0.7} />
       </RoundedBox>
 
       {/* Meeting room table */}
       <RoundedBox args={[3, 0.08, 1.5]} position={[0, 0.75, -16]} radius={0.04} castShadow>
-        <meshStandardMaterial color="#2a2a4a" roughness={0.3} />
+        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
       </RoundedBox>
 
       {/* DaleSolution logo on wall */}
