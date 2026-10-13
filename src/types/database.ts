@@ -1,7 +1,11 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+﻿export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export interface Database {
   public: {
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
     Tables: {
       organizations: {
         Row: {
@@ -30,7 +34,7 @@ export interface Database {
           settings?: Json;
           updated_at?: string;
         };
-      };
+        Relationships: [];};
       profiles: {
         Row: {
           id: string;
@@ -69,7 +73,7 @@ export interface Database {
           position?: string | null;
           updated_at?: string;
         };
-      };
+      Relationships: [];};
       teams: {
         Row: {
           id: string;
@@ -92,7 +96,7 @@ export interface Database {
           lead_id?: string | null;
           color?: string;
         };
-      };
+      Relationships: [];};
       team_members: {
         Row: {
           id: string;
@@ -110,7 +114,7 @@ export interface Database {
           team_id?: string;
           profile_id?: string;
         };
-      };
+      Relationships: [];};
       attendance_sessions: {
         Row: {
           id: string;
@@ -148,6 +152,7 @@ export interface Database {
         };
         Update: {
           state?: 'clocked_in' | 'on_break' | 'clocked_out';
+          clock_in_at?: string;
           clock_out_at?: string | null;
           notes?: string | null;
           total_break_minutes?: number;
@@ -156,7 +161,7 @@ export interface Database {
           is_auto_clocked_out?: boolean;
           updated_at?: string;
         };
-      };
+      Relationships: [];};
       attendance_breaks: {
         Row: {
           id: string;
@@ -178,7 +183,7 @@ export interface Database {
           end_at?: string | null;
           duration_minutes?: number | null;
         };
-      };
+      Relationships: [];};
       work_schedules: {
         Row: {
           id: string;
@@ -216,7 +221,7 @@ export interface Database {
           is_default?: boolean;
           timezone?: string;
         };
-      };
+      Relationships: [];};
       schedule_assignments: {
         Row: {
           id: string;
@@ -237,7 +242,7 @@ export interface Database {
         Update: {
           effective_until?: string | null;
         };
-      };
+      Relationships: [];};
       employee_invitations: {
         Row: {
           id: string;
@@ -275,7 +280,7 @@ export interface Database {
           status?: 'pending' | 'accepted' | 'expired' | 'revoked';
           accepted_at?: string | null;
         };
-      };
+      Relationships: [];};
       correction_requests: {
         Row: {
           id: string;
@@ -311,7 +316,7 @@ export interface Database {
           admin_notes?: string | null;
           reviewed_at?: string | null;
         };
-      };
+      Relationships: [];};
       notifications: {
         Row: {
           id: string;
@@ -338,7 +343,7 @@ export interface Database {
         Update: {
           read_at?: string | null;
         };
-      };
+      Relationships: [];};
       audit_logs: {
         Row: {
           id: string;
@@ -363,6 +368,7 @@ export interface Database {
           created_at?: string;
         };
         Update: never;
+        Relationships: [];
       };
       webhook_endpoints: {
         Row: {
@@ -389,7 +395,7 @@ export interface Database {
           events?: string[];
           is_active?: boolean;
         };
-      };
+      Relationships: [];};
       webhook_deliveries: {
         Row: {
           id: string;
@@ -419,7 +425,7 @@ export interface Database {
           attempts?: number;
           delivered_at?: string | null;
         };
-      };
+      Relationships: [];};
       office_config: {
         Row: {
           id: string;
@@ -446,7 +452,7 @@ export interface Database {
           is_enabled?: boolean;
           updated_at?: string;
         };
-      };
+      Relationships: [];};
     };
   };
 }
@@ -470,3 +476,4 @@ export type AuditLog = Tables<'audit_logs'>;
 export type WebhookEndpoint = Tables<'webhook_endpoints'>;
 export type WebhookDelivery = Tables<'webhook_deliveries'>;
 export type OfficeConfig = Tables<'office_config'>;
+

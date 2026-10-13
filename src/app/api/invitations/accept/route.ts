@@ -1,0 +1,126 @@
+import { NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { token, userId, fullName, email } = body;
+
+    if (!token || !userId || !fullName || !email) {
+      return NextResponse.json(
+        { error: 'Missing required fields: token, userId, fullName, email' },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createAdminClient();
+
+    // 1. Validate the invitation token
+    const { data: invitation, error: invError } = await supabase
+      .from('employee_invitations')
+      .select('*')
+      .eq('token', token)
+      .single();
+
+    if (invError || !invitation) {
+      return NextResponse.json(
+        { error: 'Invitation not found.' },
+        { status: 404 }
+      );
+    }
+
+    // Check status
+    if (invitation.status !== 'pending') {
+      return NextResponse.json(
+        { error: `Invitation is ${invitation.status}. It cannot be accepted.` },
+        { status: 400 }
+      );
+    }
+
+    // Check expiration
+    if (new Date(invitation.expires_at) < new Date()) {
+      // Mark as expired
+      await supabase
+        .from('employee_invitations')
+        .update({ status: 'expired' })
+        .eq('id', invitation.id);
+
+      return NextResponse.json(
+        { error: 'Invitation has expired.' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Create the profile record
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: userId,
+        org_id: invitation.org_id,
+        email,
+        full_name: fullName,
+        role: invitation.role,
+        position: invitation.position,
+        status: 'active',
+      });
+
+    if (profileError) {
+      return NextResponse.json(
+        { error: `Failed to create profile: ${profileError.message}` },
+        { status: 500 }
+      );
+    }
+
+    // 3. Assign team if specified
+    if (invitation.team_id) {
+      await supabase
+        .from('team_members')
+        .insert({
+          team_id: invitation.team_id,
+          profile_id: userId,
+        });
+    }
+
+    // 4. Assign schedule if specified
+    if (invitation.schedule_id) {
+      await supabase
+        .from('schedule_assignments')
+        .insert({
+          profile_id: userId,
+          schedule_id: invitation.schedule_id,
+          effective_from: new Date().toISOString(),
+        });
+    }
+
+    // 5. Mark invitation as accepted
+    await supabase
+      .from('employee_invitations')
+      .update({
+        status: 'accepted',
+        accepted_at: new Date().toISOString(),
+      })
+      .eq('id', invitation.id);
+
+    // 6. Create audit log entry
+    await supabase.from('audit_logs').insert({
+      org_id: invitation.org_id,
+      actor_id: userId,
+      action: 'invitation.accepted',
+      entity_type: 'employee_invitation',
+      entity_id: invitation.id,
+      new_data: {
+        email,
+        role: invitation.role,
+        team_id: invitation.team_id,
+        position: invitation.position,
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

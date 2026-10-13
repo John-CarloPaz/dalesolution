@@ -217,11 +217,11 @@ CREATE TABLE office_config (
 );
 
 -- Helper functions for RLS
-CREATE OR REPLACE FUNCTION auth.org_id() RETURNS uuid AS $$
+CREATE OR REPLACE FUNCTION public.requesting_org_id() RETURNS uuid AS $$
   SELECT org_id FROM public.profiles WHERE id = auth.uid()
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
 
-CREATE OR REPLACE FUNCTION auth.user_role() RETURNS text AS $$
+CREATE OR REPLACE FUNCTION public.requesting_user_role() RETURNS text AS $$
   SELECT role FROM public.profiles WHERE id = auth.uid()
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
 
