@@ -69,7 +69,15 @@ function AcceptInvitationContent() {
 
     const fetchInvitation = async () => {
       try {
-        const res = await fetch(`/api/invitations/accept?token=${encodeURIComponent(token!)}`);
+        const res = await fetch(`/api/invitations/validate?token=${encodeURIComponent(token!)}`);
+        const contentType = res.headers.get('content-type') ?? '';
+
+        if (!contentType.includes('application/json')) {
+          setInvitationError(`Server error (${res.status}). Please try again later.`);
+          setLoadingInvitation(false);
+          return;
+        }
+
         const data = await res.json();
 
         if (!res.ok) {
