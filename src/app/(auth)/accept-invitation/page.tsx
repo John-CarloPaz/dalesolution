@@ -84,8 +84,8 @@ function AcceptInvitationContent() {
         if (data.full_name) {
           setValue('fullName', data.full_name);
         }
-      } catch {
-        setInvitationError('Failed to validate invitation. Please try again.');
+      } catch (err) {
+        setInvitationError(`Failed to validate invitation: ${err instanceof Error ? err.message : 'Please try again.'}`);
       }
       setLoadingInvitation(false);
     };
