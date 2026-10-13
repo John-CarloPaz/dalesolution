@@ -70,27 +70,28 @@ function AcceptInvitationContent() {
     const fetchInvitation = async () => {
       try {
         const res = await fetch(`/api/invitations/validate?token=${encodeURIComponent(token!)}`);
-        const contentType = res.headers.get('content-type') ?? '';
+        const text = await res.text();
 
-        if (!contentType.includes('application/json')) {
-          setInvitationError(`Server error (${res.status}). Please try again later.`);
+        let data: Record<string, unknown>;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          setInvitationError(`Server returned unexpected response (${res.status}).`);
           setLoadingInvitation(false);
           return;
         }
-
-        const data = await res.json();
 
         if (!res.ok) {
-          setInvitationError(data.error || 'Invalid invitation.');
+          setInvitationError((data.error as string) || 'Invalid invitation.');
           setLoadingInvitation(false);
           return;
         }
 
-        setInvitation(data as InvitationDetails);
+        setInvitation(data as unknown as InvitationDetails);
 
-        setValue('email', data.email);
+        setValue('email', data.email as string);
         if (data.full_name) {
-          setValue('fullName', data.full_name);
+          setValue('fullName', data.full_name as string);
         }
       } catch (err) {
         setInvitationError(`Failed to validate invitation: ${err instanceof Error ? err.message : 'Please try again.'}`);
