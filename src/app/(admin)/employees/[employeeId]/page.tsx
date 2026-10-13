@@ -56,30 +56,10 @@ import {
   formatTime,
   formatDuration,
 } from '@/lib/utils';
-import type { Profile, AttendanceSession } from '@/types/database';
+import type { Profile, AttendanceSession, WorkSchedule } from '@/types/database';
+import { TIMEZONES } from '@/lib/constants/timezones';
 import { toast } from 'sonner';
 import Link from 'next/link';
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const TIMEZONES = [
-  'UTC',
-  'America/New_York',
-  'America/Chicago',
-  'America/Denver',
-  'America/Los_Angeles',
-  'America/Toronto',
-  'Europe/London',
-  'Europe/Berlin',
-  'Europe/Paris',
-  'Asia/Tokyo',
-  'Asia/Shanghai',
-  'Asia/Kolkata',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-];
 
 // ---------------------------------------------------------------------------
 // Loading skeleton
@@ -166,6 +146,9 @@ export default function EmployeeDetailPage({
     null
   );
   const [teamName, setTeamName] = useState<string | null>(null);
+  const [schedules, setSchedules] = useState<WorkSchedule[]>([]);
+  const [currentScheduleId, setCurrentScheduleId] = useState<string | null>(null);
+  const [assigningSchedule, setAssigningSchedule] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Edit dialog
@@ -192,7 +175,7 @@ export default function EmployeeDetailPage({
       todayEnd.setHours(23, 59, 59, 999);
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [profileRes, sessionsRes, monthlyRes, todayRes, teamRes] =
+      const [profileRes, sessionsRes, monthlyRes, todayRes, teamRes, assignmentRes] =
         await Promise.all([
           supabase
             .from('profiles')
@@ -225,6 +208,13 @@ export default function EmployeeDetailPage({
             .eq('profile_id', employeeId)
             .limit(1)
             .maybeSingle(),
+          supabase
+            .from('schedule_assignments')
+            .select('schedule_id')
+            .eq('profile_id', employeeId)
+            .is('effective_until', null)
+            .limit(1)
+            .maybeSingle(),
         ]);
 
       const emp = profileRes.data;
@@ -232,6 +222,16 @@ export default function EmployeeDetailPage({
       setSessions(sessionsRes.data ?? []);
       setMonthlySessions(monthlyRes.data ?? []);
       setTodaySession(todayRes.data?.[0] ?? null);
+      setCurrentScheduleId(assignmentRes.data?.schedule_id ?? null);
+
+      if (emp?.org_id) {
+        const { data: scheds } = await supabase
+          .from('work_schedules')
+          .select('*')
+          .eq('org_id', emp.org_id)
+          .order('name');
+        setSchedules(scheds ?? []);
+      }
 
       if (teamRes.data?.team_id) {
         const { data: team } = await supabase
@@ -320,6 +320,53 @@ export default function EmployeeDetailPage({
       setEmployee({ ...employee, role: newRole as Profile['role'] });
     }
     setChangingRole(false);
+  }
+
+  // ---------- Schedule assignment ----------
+
+  async function handleScheduleChange(value: string | null) {
+    if (!employee) return;
+    const newScheduleId = value === 'none' ? null : value;
+    if (newScheduleId === currentScheduleId) return;
+
+    setAssigningSchedule(true);
+    const nowIso = new Date().toISOString();
+
+    // End any currently active assignment
+    const { error: endError } = await supabase
+      .from('schedule_assignments')
+      .update({ effective_until: nowIso })
+      .eq('profile_id', employee.id)
+      .is('effective_until', null);
+
+    if (endError) {
+      toast.error('Failed to update schedule');
+      setAssigningSchedule(false);
+      return;
+    }
+
+    // Assign the new schedule (unless clearing)
+    if (newScheduleId) {
+      const { error: insertError } = await supabase
+        .from('schedule_assignments')
+        .insert({
+          profile_id: employee.id,
+          schedule_id: newScheduleId,
+          effective_from: nowIso,
+        });
+
+      if (insertError) {
+        toast.error('Failed to assign schedule');
+        setAssigningSchedule(false);
+        return;
+      }
+      toast.success('Schedule assigned');
+    } else {
+      toast.success('Schedule cleared');
+    }
+
+    setCurrentScheduleId(newScheduleId);
+    setAssigningSchedule(false);
   }
 
   // ---------- Loading / not found ----------
@@ -491,6 +538,39 @@ export default function EmployeeDetailPage({
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="team_lead">Team Lead</SelectItem>
                 <SelectItem value="employee">Employee</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Schedule assignment (admin only) */}
+      {isCurrentUserAdmin && (
+        <Card size="sm">
+          <CardContent className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <p className="text-sm font-medium">Work Schedule</p>
+              <p className="text-xs text-muted-foreground">
+                {schedules.length === 0
+                  ? 'No schedules exist yet — create one on the Schedules page.'
+                  : 'Assign a shift schedule to this employee'}
+              </p>
+            </div>
+            <Select
+              value={currentScheduleId ?? 'none'}
+              onValueChange={handleScheduleChange}
+              disabled={assigningSchedule || schedules.length === 0}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="No schedule" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No schedule</SelectItem>
+                {schedules.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name} ({s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </CardContent>

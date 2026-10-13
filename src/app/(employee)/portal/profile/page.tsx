@@ -12,6 +12,14 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { TIMEZONES } from '@/lib/constants/timezones';
 import { Loader2, Save, User } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -156,12 +164,21 @@ export default function ProfilePage() {
 
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>
-              <Input
-                id="timezone"
-                value={timezone}
-                onChange={(e) => handleChange('timezone', e.target.value)}
-                placeholder="e.g. Asia/Manila"
-              />
+              <Select
+                value={timezone || undefined}
+                onValueChange={(v) => handleChange('timezone', v ?? 'UTC')}
+              >
+                <SelectTrigger id="timezone" className="w-full">
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz.replace(/_/g, ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <Button

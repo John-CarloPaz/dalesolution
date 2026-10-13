@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
-    const token = request.nextUrl.searchParams.get('token');
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get('token');
     if (!token) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 });
     }

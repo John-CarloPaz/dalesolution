@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronsUpDown,
   User,
+  Briefcase,
 } from 'lucide-react';
 import { useSession } from '@/hooks/use-session';
 import { ROLE_LABELS } from '@/lib/constants/roles';
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Attendance', href: '/attendance', icon: Clock },
   { label: 'Employees', href: '/employees', icon: Users },
+  { label: 'Clients', href: '/clients', icon: Briefcase },
   { label: 'Teams', href: '/teams', icon: UsersRound },
   { label: 'Schedules', href: '/schedules', icon: CalendarDays },
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },

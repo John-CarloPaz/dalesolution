@@ -453,6 +453,44 @@ export interface Database {
           updated_at?: string;
         };
       Relationships: [];};
+      clients: {
+        Row: {
+          id: string;
+          org_id: string;
+          name: string;
+          company: string | null;
+          email: string | null;
+          phone: string | null;
+          notes: string | null;
+          status: string;
+          assigned_to: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          org_id: string;
+          name: string;
+          company?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          notes?: string | null;
+          status?: string;
+          assigned_to?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          company?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          notes?: string | null;
+          status?: string;
+          assigned_to?: string | null;
+          updated_at?: string;
+        };
+      Relationships: [];};
     };
   };
 }
@@ -476,4 +514,5 @@ export type AuditLog = Tables<'audit_logs'>;
 export type WebhookEndpoint = Tables<'webhook_endpoints'>;
 export type WebhookDelivery = Tables<'webhook_deliveries'>;
 export type OfficeConfig = Tables<'office_config'>;
+export type Client = Tables<'clients'>;
 

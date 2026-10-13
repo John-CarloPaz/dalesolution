@@ -132,6 +132,7 @@ export default function AttendancePage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [activeEmployeeCount, setActiveEmployeeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [teamFilter, setTeamFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -172,6 +173,7 @@ export default function AttendancePage() {
     const members = membersResult.data || [];
 
     setTeams(allTeams);
+    setActiveEmployeeCount(profiles.length);
 
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
     const memberTeamMap = new Map<string, string>();
@@ -210,9 +212,19 @@ export default function AttendancePage() {
 
   // -- Compute summary stats
   const summary = useMemo<SummaryStats>(() => {
-    const presentToday = records.length;
-    const onBreak = records.filter((r) => r.session.state === 'on_break').length;
-    const lateArrivals = records.filter((r) => r.session.is_late).length;
+    // Unique people present today (a person may have multiple sessions)
+    const presentIds = new Set(records.map((r) => r.session.profile_id));
+    const presentToday = presentIds.size;
+
+    // Unique people currently on break
+    const onBreak = new Set(
+      records.filter((r) => r.session.state === 'on_break').map((r) => r.session.profile_id)
+    ).size;
+
+    // Unique people who were late today
+    const lateArrivals = new Set(
+      records.filter((r) => r.session.is_late).map((r) => r.session.profile_id)
+    ).size;
 
     const workedMinutes = records
       .filter((r) => r.session.total_worked_minutes != null)
@@ -221,17 +233,14 @@ export default function AttendancePage() {
       ? Math.round(workedMinutes.reduce((a, b) => a + b, 0) / workedMinutes.length)
       : 0;
 
-    // Count active employees from unique profiles that have records
-    const totalEmployees = new Set(records.map((r) => r.session.profile_id)).size;
-
     return {
-      totalEmployees,
+      totalEmployees: activeEmployeeCount,
       presentToday,
       onBreak,
       lateArrivals,
       averageHours: avgMinutes,
     };
-  }, [records]);
+  }, [records, activeEmployeeCount]);
 
   // -- Apply filters
   const filteredRecords = useMemo(() => {
