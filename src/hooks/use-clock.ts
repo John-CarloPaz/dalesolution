@@ -75,6 +75,46 @@ export function useClock() {
     fetchActiveSession();
   }, [fetchActiveSession]);
 
+  // Keep clock state in sync across browsers/tabs via realtime + refetch on focus
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`my-attendance-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_sessions',
+          filter: `profile_id=eq.${user.id}`,
+        },
+        () => {
+          fetchActiveSession();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_breaks',
+        },
+        () => {
+          fetchActiveSession();
+        }
+      )
+      .subscribe();
+
+    const onFocus = () => fetchActiveSession();
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      channel.unsubscribe();
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [supabase, user, fetchActiveSession]);
+
   useEffect(() => {
     if (!state.activeSession || state.attendanceState === 'not_started') return;
 
