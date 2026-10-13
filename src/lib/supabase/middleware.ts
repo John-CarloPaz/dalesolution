@@ -34,7 +34,12 @@ export async function updateSession(request: NextRequest) {
     path.startsWith('/forgot-password') || path.startsWith('/reset-password') ||
     path.startsWith('/accept-invitation');
 
-  if (!user && !isAuthRoute && path !== '/') {
+  // Public API routes that handle their own auth (e.g. token-based invitations)
+  const isPublicApi = path.startsWith('/api/invitations/validate') ||
+    path.startsWith('/api/invitations/accept') ||
+    path.startsWith('/api/auth');
+
+  if (!user && !isAuthRoute && !isPublicApi && path !== '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
