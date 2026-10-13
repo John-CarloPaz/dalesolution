@@ -1,5 +1,58 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+
+export async function GET(request: NextRequest) {
+  try {
+    const token = request.nextUrl.searchParams.get('token');
+    if (!token) {
+      return NextResponse.json({ error: 'Missing token' }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+
+    const { data: invitation, error } = await supabase
+      .from('employee_invitations')
+      .select('*')
+      .eq('token', token)
+      .single();
+
+    if (error || !invitation) {
+      return NextResponse.json(
+        { error: 'Invitation not found. It may have been revoked or the link is invalid.' },
+        { status: 404 }
+      );
+    }
+
+    if (invitation.status === 'accepted') {
+      return NextResponse.json({ error: 'This invitation has already been accepted.' }, { status: 400 });
+    }
+    if (invitation.status === 'revoked') {
+      return NextResponse.json({ error: 'This invitation has been revoked.' }, { status: 400 });
+    }
+    if (invitation.status === 'expired' || new Date(invitation.expires_at) < new Date()) {
+      return NextResponse.json({ error: 'This invitation has expired.' }, { status: 400 });
+    }
+
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', invitation.org_id)
+      .single();
+
+    return NextResponse.json({
+      id: invitation.id,
+      email: invitation.email,
+      full_name: invitation.full_name,
+      role: invitation.role,
+      position: invitation.position,
+      status: invitation.status,
+      expires_at: invitation.expires_at,
+      org_name: org?.name ?? 'Unknown Organization',
+    });
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request) {
   try {

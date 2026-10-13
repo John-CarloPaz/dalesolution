@@ -68,66 +68,30 @@ function AcceptInvitationContent() {
     }
 
     const fetchInvitation = async () => {
-      const { data: invData, error } = await supabase
-        .from('employee_invitations')
-        .select('*')
-        .eq('token', token)
-        .single();
+      try {
+        const res = await fetch(`/api/invitations/accept?token=${encodeURIComponent(token!)}`);
+        const data = await res.json();
 
-      if (error || !invData) {
-        setInvitationError('Invitation not found. It may have been revoked or the link is invalid.');
-        setLoadingInvitation(false);
-        return;
+        if (!res.ok) {
+          setInvitationError(data.error || 'Invalid invitation.');
+          setLoadingInvitation(false);
+          return;
+        }
+
+        setInvitation(data as InvitationDetails);
+
+        setValue('email', data.email);
+        if (data.full_name) {
+          setValue('fullName', data.full_name);
+        }
+      } catch {
+        setInvitationError('Failed to validate invitation. Please try again.');
       }
-
-      // Check status
-      if (invData.status === 'accepted') {
-        setInvitationError('This invitation has already been accepted.');
-        setLoadingInvitation(false);
-        return;
-      }
-
-      if (invData.status === 'revoked') {
-        setInvitationError('This invitation has been revoked.');
-        setLoadingInvitation(false);
-        return;
-      }
-
-      if (invData.status === 'expired' || new Date(invData.expires_at) < new Date()) {
-        setInvitationError('This invitation has expired.');
-        setLoadingInvitation(false);
-        return;
-      }
-
-      // Fetch org name
-      const { data: orgData } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', invData.org_id)
-        .single();
-
-      setInvitation({
-        id: invData.id,
-        email: invData.email,
-        full_name: invData.full_name,
-        role: invData.role,
-        position: invData.position,
-        status: invData.status,
-        expires_at: invData.expires_at,
-        org_name: orgData?.name ?? 'Unknown Organization',
-      });
-
-      // Pre-fill form
-      setValue('email', invData.email);
-      if (invData.full_name) {
-        setValue('fullName', invData.full_name);
-      }
-
       setLoadingInvitation(false);
     };
 
     fetchInvitation();
-  }, [token, supabase, setValue]);
+  }, [token, setValue]);
 
   const onSubmit = async (data: RegisterInput) => {
     if (!token || !invitation) return;
