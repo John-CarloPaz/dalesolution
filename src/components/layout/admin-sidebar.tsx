@@ -52,7 +52,7 @@ import {
 const NAV_ITEMS = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Attendance', href: '/attendance', icon: Clock },
-  { label: 'Employees', href: '/employees', icon: Users },
+  { label: 'Virtual Assistants', href: '/employees', icon: Users },
   { label: 'Clients', href: '/clients', icon: Briefcase },
   { label: 'Teams', href: '/teams', icon: UsersRound },
   { label: 'Schedules', href: '/schedules', icon: CalendarDays },
