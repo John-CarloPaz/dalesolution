@@ -35,41 +35,111 @@ interface OfficeSceneProps {
   zones: OfficeZone[];
 }
 
-// Kept for backwards compatibility with the page / sidebar imports.
+type V3 = [number, number, number];
+
+// Kept for backwards compatibility with page / sidebar imports.
 const DEFAULT_ZONES: OfficeZone[] = [
-  { id: 'workspace', name: 'Workspace', position: [0, 0, -5], size: [18, 16], color: '#3b82f6' },
-  { id: 'break', name: 'Break Room', position: [12, 0, -4], size: [6, 8], color: '#10b981' },
-  { id: 'reception', name: 'Reception', position: [0, 0, 12], size: [6, 4], color: '#6366f1' },
+  { id: 'workspace', name: 'Workspace', position: [0, 0, 0], size: [20, 20], color: '#3b82f6' },
 ];
 
 // ---------------------------------------------------------------------------
-// Office layout constants
+// Floor plan
 // ---------------------------------------------------------------------------
 
-const COLS = 4;
-const SPACING_X = 4.2;
-const SPACING_Z = 5;
-const FRONT_ROW_Z = -9; // closest desk row to the sign wall
-const SIGN_WALL_Z = -14;
+const HUB: V3 = [0, 0, 0];
 
-// Places people walk to when wandering / on break.
-const COFFEE_SPOT: [number, number, number] = [12, 0, -5];
-const SOCIAL_SPOTS: [number, number, number][] = [
-  [12, 0, -5], // coffee station
-  [12, 0, -8], // water cooler
-  [0, 0, 4], // central aisle
-  [-5, 0, 6], // by the plants
+type DoorSide = 'east' | 'west' | 'north' | 'south';
+
+interface RoomDef {
+  id: string;
+  name: string;
+  color: string;
+  cx: number;
+  cz: number;
+  w: number; // x extent
+  d: number; // z extent
+  door: DoorSide;
+}
+
+interface Room extends RoomDef {
+  hw: number;
+  hd: number;
+  doorV: V3; // point at the doorway
+  frontV: V3; // just outside the door, toward the hub
+  interiorV: V3; // inside the room
+  seatFaceY: number; // facing for someone seated inside
+}
+
+const ROOM_DEFS: RoomDef[] = [
+  { id: 'president', name: "President's Office", color: '#f59e0b', cx: -15, cz: -11, w: 10, d: 8, door: 'east' },
+  { id: 'meeting', name: 'Meeting Room', color: '#ec4899', cx: 15, cz: -11, w: 10, d: 8, door: 'west' },
+  { id: 'cr', name: 'Restroom', color: '#38bdf8', cx: 0, cz: -16, w: 8, d: 5, door: 'south' },
+  { id: 'living', name: 'Living Room', color: '#a78bfa', cx: -15, cz: 9, w: 10, d: 8, door: 'east' },
+  { id: 'gaming', name: 'Gaming Room', color: '#22d3ee', cx: 15, cz: 9, w: 10, d: 8, door: 'west' },
+  { id: 'cafe', name: 'Cafe & Bar', color: '#10b981', cx: 0, cz: 15.5, w: 16, d: 6, door: 'north' },
 ];
 
-function deskPositionForIndex(i: number): [number, number, number] {
-  const col = i % COLS;
-  const row = Math.floor(i / COLS);
-  const x = (col - (COLS - 1) / 2) * SPACING_X;
-  const z = FRONT_ROW_Z + row * SPACING_Z;
+function makeRoom(def: RoomDef): Room {
+  const hw = def.w / 2;
+  const hd = def.d / 2;
+  let doorV: V3;
+  let frontV: V3;
+  let seatFaceY = 0;
+  switch (def.door) {
+    case 'east':
+      doorV = [def.cx + hw, 0, def.cz];
+      frontV = [def.cx + hw + 1.9, 0, def.cz];
+      seatFaceY = Math.PI / 2; // face +x toward door
+      break;
+    case 'west':
+      doorV = [def.cx - hw, 0, def.cz];
+      frontV = [def.cx - hw - 1.9, 0, def.cz];
+      seatFaceY = -Math.PI / 2;
+      break;
+    case 'north':
+      doorV = [def.cx, 0, def.cz - hd];
+      frontV = [def.cx, 0, def.cz - hd - 1.9];
+      seatFaceY = 0;
+      break;
+    case 'south':
+      doorV = [def.cx, 0, def.cz + hd];
+      frontV = [def.cx, 0, def.cz + hd + 1.9];
+      seatFaceY = Math.PI;
+      break;
+  }
+  return {
+    ...def,
+    hw,
+    hd,
+    doorV,
+    frontV,
+    interiorV: [def.cx, 0, def.cz],
+    seatFaceY,
+  };
+}
+
+const ROOMS: Room[] = ROOM_DEFS.map(makeRoom);
+const ROOM_BY_ID = new Map(ROOMS.map((r) => [r.id, r]));
+
+// ---------------------------------------------------------------------------
+// Desks (bullpen)
+// ---------------------------------------------------------------------------
+
+const DESK_COLS = 5;
+const DESK_SX = 3.4;
+const DESK_SZ = 3.3;
+const DESK_START_Z = -6;
+const MIN_DESKS = 15;
+
+function deskPositionForIndex(i: number): V3 {
+  const col = i % DESK_COLS;
+  const row = Math.floor(i / DESK_COLS);
+  const x = (col - (DESK_COLS - 1) / 2) * DESK_SX;
+  const z = DESK_START_Z + row * DESK_SZ;
   return [x, 0, z];
 }
 
-function seatForDesk(desk: [number, number, number]): [number, number, number] {
+function seatForDesk(desk: V3): V3 {
   return [desk[0], 0, desk[2] + 0.85];
 }
 
@@ -79,12 +149,7 @@ function seatForDesk(desk: [number, number, number]): [number, number, number] {
 
 export function OfficeScene({ employees, onSelectEmployee, selectedEmployeeId }: OfficeSceneProps) {
   return (
-    <Canvas
-      shadows
-      dpr={[1, 1.5]}
-      gl={{ antialias: true, alpha: false }}
-      style={{ background: 'transparent' }}
-    >
+    <Canvas shadows dpr={[1, 1.5]} gl={{ antialias: true, alpha: false }} style={{ background: 'transparent' }}>
       <Suspense fallback={null}>
         <SceneContent
           employees={employees}
@@ -101,76 +166,97 @@ function SceneContent({
   onSelectEmployee,
   selectedEmployeeId,
 }: Omit<OfficeSceneProps, 'zones'>) {
-  // Stable desk assignment by sorted profile id so a person keeps their desk.
-  const ordered = useMemo(
-    () => [...employees].sort((a, b) => a.profile.id.localeCompare(b.profile.id)),
+  const active = useMemo(
+    () =>
+      employees
+        .filter((e) => e.session?.state === 'clocked_in' || e.session?.state === 'on_break')
+        .sort((a, b) => a.profile.id.localeCompare(b.profile.id)),
     [employees]
   );
 
+  const owner = useMemo(() => active.find((e) => e.profile.role === 'owner') ?? null, [active]);
+  const deskWorkers = useMemo(() => active.filter((e) => e.profile.role !== 'owner'), [active]);
+
+  const deskCount = Math.max(MIN_DESKS, deskWorkers.length);
   const desks = useMemo(
-    () => ordered.map((_, i) => deskPositionForIndex(i)),
-    [ordered]
+    () => Array.from({ length: deskCount }, (_, i) => deskPositionForIndex(i)),
+    [deskCount]
   );
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={[13, 15, 17]} fov={45} />
+      <PerspectiveCamera makeDefault position={[18, 21, 24]} fov={45} />
       <OrbitControls
-        target={[0, 1.5, -3]}
-        minPolarAngle={Math.PI / 8}
-        maxPolarAngle={Math.PI / 2.2}
-        minDistance={8}
-        maxDistance={46}
+        target={[0, 1.5, 0]}
+        minPolarAngle={Math.PI / 10}
+        maxPolarAngle={Math.PI / 2.15}
+        minDistance={10}
+        maxDistance={60}
         enableDamping
         dampingFactor={0.05}
       />
 
       {/* Lighting */}
-      <ambientLight intensity={1.15} />
-      <hemisphereLight args={['#ffffff', '#3a3a55', 0.6]} />
+      <ambientLight intensity={1.1} />
+      <hemisphereLight args={['#ffffff', '#3a3a55', 0.55]} />
       <directionalLight
-        position={[12, 20, 8]}
-        intensity={1.4}
+        position={[16, 24, 12]}
+        intensity={1.35}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
-        shadow-camera-far={70}
-        shadow-camera-left={-28}
-        shadow-camera-right={28}
-        shadow-camera-top={28}
-        shadow-camera-bottom={-28}
+        shadow-camera-far={90}
+        shadow-camera-left={-34}
+        shadow-camera-right={34}
+        shadow-camera-top={34}
+        shadow-camera-bottom={-34}
       />
-      <pointLight position={[-10, 8, 2]} intensity={0.5} color="#6366f1" />
-      <pointLight position={[10, 8, -6]} intensity={0.4} color="#3b82f6" />
+      <pointLight position={[-12, 9, 2]} intensity={0.45} color="#6366f1" />
+      <pointLight position={[12, 9, -6]} intensity={0.4} color="#3b82f6" />
 
       <Floor />
       <Rug />
-      <OfficeWalls />
-      <SignWall />
-      <OfficeDecorations />
+      <OuterWalls />
+      <SignBanner />
 
-      {/* Desks are permanent fixtures — always rendered */}
-      {desks.map((d, i) => (
-        <Desk key={`desk-${ordered[i].profile.id}`} position={d} />
+      {ROOMS.map((room) => (
+        <RoomShell key={room.id} room={room} />
       ))}
 
-      {/* Avatars for active people, seated at their desk or walking around */}
-      {ordered.map((emp, i) => {
-        const state = emp.session?.state;
-        if (state !== 'clocked_in' && state !== 'on_break') return null;
-        return (
-          <Worker
-            key={`worker-${emp.profile.id}`}
-            employee={emp}
-            desk={desks[i]}
-            isSelected={emp.profile.id === selectedEmployeeId}
-            onClick={() => onSelectEmployee(emp)}
-          />
-        );
-      })}
+      {/* Desks — permanent fixtures, at least 15 */}
+      {desks.map((d, i) => (
+        <Desk key={`desk-${i}`} position={d} />
+      ))}
 
-      <fog attach="fog" args={['#1a1a2e', 55, 95]} />
+      {/* Desk workers */}
+      {deskWorkers.map((emp, i) => (
+        <Worker
+          key={`w-${emp.profile.id}`}
+          employee={emp}
+          home={{ kind: 'desk', seat: seatForDesk(desks[i]), faceY: Math.PI }}
+          isSelected={emp.profile.id === selectedEmployeeId}
+          onClick={() => onSelectEmployee(emp)}
+        />
+      ))}
+
+      {/* Owner seated in the President's office */}
+      {owner && (
+        <Worker
+          key={`w-${owner.profile.id}`}
+          employee={owner}
+          home={{
+            kind: 'room',
+            room: ROOM_BY_ID.get('president')!,
+            seat: [ROOM_BY_ID.get('president')!.cx - 1, 0, ROOM_BY_ID.get('president')!.cz],
+            faceY: Math.PI / 2,
+          }}
+          isSelected={owner.profile.id === selectedEmployeeId}
+          onClick={() => onSelectEmployee(owner)}
+        />
+      )}
+
+      <fog attach="fog" args={['#1a1a2e', 60, 110]} />
     </>
   );
 }
@@ -182,7 +268,7 @@ function SceneContent({
 function Floor() {
   return (
     <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
-      <planeGeometry args={[60, 60]} />
+      <planeGeometry args={[70, 70]} />
       <meshStandardMaterial color="#26263f" roughness={0.9} />
     </mesh>
   );
@@ -190,171 +276,262 @@ function Floor() {
 
 function Rug() {
   return (
-    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, -2]}>
-      <planeGeometry args={[22, 20]} />
+    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+      <planeGeometry args={[20, 20]} />
       <meshStandardMaterial color="#2f2f52" roughness={0.85} />
     </mesh>
   );
 }
 
-function OfficeWalls() {
-  const wall = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#34345a', roughness: 0.85 }),
-    []
-  );
-
+function OuterWalls() {
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#2d2d4e', roughness: 0.85 }), []);
   return (
     <group>
-      {/* Left wall */}
-      <mesh position={[-17, 2, -2]} material={wall} receiveShadow>
-        <boxGeometry args={[0.3, 4, 32]} />
+      <mesh position={[0, 2, -20]} material={mat} receiveShadow>
+        <boxGeometry args={[52, 4, 0.3]} />
       </mesh>
-      {/* Right wall */}
-      <mesh position={[17, 2, -2]} material={wall} receiveShadow>
-        <boxGeometry args={[0.3, 4, 32]} />
+      <mesh position={[0, 2, 20]} material={mat} receiveShadow>
+        <boxGeometry args={[52, 4, 0.3]} />
       </mesh>
-      {/* Back wall (behind reception) */}
-      <mesh position={[0, 2, 14]} material={wall} receiveShadow>
-        <boxGeometry args={[34, 4, 0.3]} />
+      <mesh position={[-25.5, 2, 0]} material={mat} receiveShadow>
+        <boxGeometry args={[0.3, 4, 40]} />
       </mesh>
-      {/* Break-room partition */}
-      <mesh position={[9, 1.6, -5]} material={wall} receiveShadow castShadow>
-        <boxGeometry args={[0.2, 3.2, 10]} />
+      <mesh position={[25.5, 2, 0]} material={mat} receiveShadow>
+        <boxGeometry args={[0.3, 4, 40]} />
       </mesh>
     </group>
   );
 }
 
-function SignWall() {
+function SignBanner() {
+  // On the north outer wall, raised above the room heights so it is visible.
   return (
-    <group>
-      {/* The wall the desks face */}
-      <mesh position={[0, 2.4, SIGN_WALL_Z]} receiveShadow>
-        <boxGeometry args={[34, 4.8, 0.3]} />
-        <meshStandardMaterial color="#2b2b4d" roughness={0.8} />
+    <group position={[0, 0, -19.7]}>
+      <mesh position={[0, 3.3, 0]}>
+        <planeGeometry args={[16, 2.4]} />
+        <meshStandardMaterial color="#1a1a33" emissive="#23234f" emissiveIntensity={0.45} roughness={0.5} />
       </mesh>
-      {/* Accent panel behind the logo */}
-      <mesh position={[0, 2.9, SIGN_WALL_Z + 0.16]}>
-        <planeGeometry args={[12, 2.6]} />
-        <meshStandardMaterial
-          color="#1a1a33"
-          emissive="#20204a"
-          emissiveIntensity={0.4}
-          roughness={0.5}
-        />
-      </mesh>
-      {/* DALESOLUTION sign facing the desks (+z) */}
-      <Text
-        position={[0, 3.2, SIGN_WALL_Z + 0.2]}
-        fontSize={1.25}
-        color="#8b9bff"
-        anchorX="center"
-        anchorY="middle"
-        letterSpacing={0.04}
-        outlineWidth={0.02}
-        outlineColor="#000000"
-      >
+      <Text position={[0, 3.55, 0.12]} fontSize={1.2} color="#8b9bff" anchorX="center" anchorY="middle" letterSpacing={0.05} outlineWidth={0.02} outlineColor="#000000">
         DALESOLUTION
       </Text>
-      <Text
-        position={[0, 2.25, SIGN_WALL_Z + 0.2]}
-        fontSize={0.42}
-        color="#c3b6ff"
-        anchorX="center"
-        anchorY="middle"
-        letterSpacing={0.35}
-        fillOpacity={0.85}
-      >
+      <Text position={[0, 2.65, 0.12]} fontSize={0.4} color="#c3b6ff" anchorX="center" anchorY="middle" letterSpacing={0.35} fillOpacity={0.85}>
         WORKFORCE OS
       </Text>
     </group>
   );
 }
 
-function OfficeDecorations() {
+// ---------------------------------------------------------------------------
+// Rooms
+// ---------------------------------------------------------------------------
+
+function RoomShell({ room }: { room: Room }) {
+  const { cx, cz, hw, hd, door, color } = room;
+  const t = 0.2;
+  const h = 3;
+  const gap = 2.6;
+  const wallColor = '#34345c';
+
+  function Seg({ position, args }: { position: V3; args: V3 }) {
+    return (
+      <mesh position={position} castShadow receiveShadow>
+        <boxGeometry args={args} />
+        <meshStandardMaterial color={wallColor} roughness={0.85} />
+      </mesh>
+    );
+  }
+
+  function hWall(z: number, hasDoor: boolean) {
+    if (!hasDoor) return <Seg position={[cx, h / 2, z]} args={[2 * hw, h, t]} />;
+    const seg = (2 * hw - gap) / 2;
+    return (
+      <>
+        <Seg position={[cx - (gap / 2 + seg / 2), h / 2, z]} args={[seg, h, t]} />
+        <Seg position={[cx + (gap / 2 + seg / 2), h / 2, z]} args={[seg, h, t]} />
+      </>
+    );
+  }
+
+  function vWall(x: number, hasDoor: boolean) {
+    if (!hasDoor) return <Seg position={[x, h / 2, cz]} args={[t, h, 2 * hd]} />;
+    const seg = (2 * hd - gap) / 2;
+    return (
+      <>
+        <Seg position={[x, h / 2, cz - (gap / 2 + seg / 2)]} args={[t, h, seg]} />
+        <Seg position={[x, h / 2, cz + (gap / 2 + seg / 2)]} args={[t, h, seg]} />
+      </>
+    );
+  }
+
   return (
     <group>
-      {/* Plants in the corners */}
-      {[
-        [-14, 0, 8],
-        [14, 0, 10],
-        [-14, 0, -12],
-      ].map((p, i) => (
-        <Plant key={i} position={p as [number, number, number]} />
-      ))}
+      {/* Floor tint */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0.01, cz]} receiveShadow>
+        <planeGeometry args={[2 * hw - 0.2, 2 * hd - 0.2]} />
+        <meshStandardMaterial color={color} transparent opacity={0.12} roughness={0.8} />
+      </mesh>
 
-      {/* Reception desk near the entrance */}
-      <RoundedBox args={[4.5, 1.1, 1.1]} position={[0, 0.55, 11]} radius={0.06} castShadow>
-        <meshStandardMaterial color="#44446a" roughness={0.4} />
-      </RoundedBox>
+      {/* Walls (door side split) */}
+      {hWall(cz - hd, door === 'north')}
+      {hWall(cz + hd, door === 'south')}
+      {vWall(cx - hw, door === 'west')}
+      {vWall(cx + hw, door === 'east')}
 
-      {/* Break-room: coffee counter + table + couch */}
-      <RoundedBox args={[2.6, 0.9, 0.8]} position={[13.2, 0.45, -5]} radius={0.05} castShadow>
-        <meshStandardMaterial color="#44446a" roughness={0.4} />
-      </RoundedBox>
-      <CoffeeMachine position={[13.2, 0.9, -5]} />
-      <RoundedBox args={[2.4, 0.55, 0.9]} position={[12.5, 0.4, -9]} radius={0.12} castShadow>
-        <meshStandardMaterial color="#6a5b8b" roughness={0.75} />
-      </RoundedBox>
+      {/* Door frame accent */}
+      <mesh position={[room.doorV[0], 2.5, room.doorV[2]]}>
+        <boxGeometry args={door === 'east' || door === 'west' ? [0.25, 0.2, gap] : [gap, 0.2, 0.25]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} />
+      </mesh>
+
+      <RoomFurniture room={room} />
+
+      {/* Label */}
+      <Billboard position={[cx, 2.9, cz]}>
+        <Text fontSize={0.42} color={color} anchorX="center" anchorY="middle" outlineWidth={0.015} outlineColor="#000000">
+          {room.name.toUpperCase()}
+        </Text>
+      </Billboard>
     </group>
   );
 }
 
-function CoffeeMachine({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <RoundedBox args={[0.5, 0.6, 0.45]} position={[0, 0.3, 0]} radius={0.04} castShadow>
-        <meshStandardMaterial color="#1d1d30" roughness={0.4} />
-      </RoundedBox>
-      <mesh position={[0, 0.65, 0]}>
-        <cylinderGeometry args={[0.07, 0.07, 0.12]} />
-        <meshStandardMaterial color="#8b9bff" emissive="#8b9bff" emissiveIntensity={0.3} />
-      </mesh>
-    </group>
-  );
-}
+function RoomFurniture({ room }: { room: Room }) {
+  const { id, cx, cz } = room;
+  const wood = '#4c4c72';
+  const dark = '#1d1d30';
 
-function Plant({ position }: { position: [number, number, number] }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 0.35, 0]} castShadow>
-        <cylinderGeometry args={[0.28, 0.34, 0.7]} />
-        <meshStandardMaterial color="#2f2f44" roughness={0.8} />
-      </mesh>
-      <Float speed={1.6} rotationIntensity={0.1} floatIntensity={0.12}>
-        <mesh position={[0, 1.1, 0]} castShadow>
-          <sphereGeometry args={[0.55, 10, 8]} />
-          <meshStandardMaterial color="#2f7d52" roughness={0.85} />
-        </mesh>
-      </Float>
-    </group>
-  );
+  switch (id) {
+    case 'president':
+      return (
+        <group>
+          <RoundedBox args={[2.6, 0.1, 1.2]} position={[cx + 0.4, 0.78, cz]} radius={0.03} castShadow>
+            <meshStandardMaterial color={wood} roughness={0.35} />
+          </RoundedBox>
+          <mesh position={[cx + 0.4, 0.38, cz]} castShadow>
+            <boxGeometry args={[2.4, 0.76, 1]} />
+            <meshStandardMaterial color={dark} roughness={0.5} />
+          </mesh>
+          {/* Executive chair */}
+          <mesh position={[cx - 1, 0.95, cz]} castShadow>
+            <boxGeometry args={[0.7, 1, 0.2]} />
+            <meshStandardMaterial color="#2a2a44" roughness={0.6} />
+          </mesh>
+          <mesh position={[cx - 1, 0.5, cz]} castShadow>
+            <boxGeometry args={[0.7, 0.12, 0.7]} />
+            <meshStandardMaterial color="#2a2a44" roughness={0.6} />
+          </mesh>
+        </group>
+      );
+    case 'meeting':
+      return (
+        <group>
+          <RoundedBox args={[4, 0.1, 1.4]} position={[cx, 0.78, cz]} radius={0.04} castShadow>
+            <meshStandardMaterial color={wood} roughness={0.35} />
+          </RoundedBox>
+          {[-1.3, 0, 1.3].map((dx) =>
+            [-1, 1].map((dz) => (
+              <mesh key={`${dx}-${dz}`} position={[cx + dx, 0.45, cz + dz]} castShadow>
+                <boxGeometry args={[0.5, 0.9, 0.5]} />
+                <meshStandardMaterial color="#3a3a5c" roughness={0.6} />
+              </mesh>
+            ))
+          )}
+        </group>
+      );
+    case 'living':
+      return (
+        <group>
+          <RoundedBox args={[3, 0.6, 1]} position={[cx, 0.4, cz + 1]} radius={0.12} castShadow>
+            <meshStandardMaterial color="#6a5b8b" roughness={0.75} />
+          </RoundedBox>
+          <RoundedBox args={[1.6, 0.4, 0.8]} position={[cx, 0.3, cz - 0.6]} radius={0.05} castShadow>
+            <meshStandardMaterial color={wood} roughness={0.4} />
+          </RoundedBox>
+          <mesh position={[cx, 1.4, cz - 2.6]} castShadow>
+            <boxGeometry args={[2.4, 1.3, 0.1]} />
+            <meshStandardMaterial color="#0e0e1f" emissive="#20305a" emissiveIntensity={0.35} />
+          </mesh>
+        </group>
+      );
+    case 'gaming':
+      return (
+        <group>
+          <mesh position={[cx, 1.6, cz - 2.6]} castShadow>
+            <boxGeometry args={[3, 1.7, 0.12]} />
+            <meshStandardMaterial color="#05050f" emissive="#3b1d6b" emissiveIntensity={0.5} />
+          </mesh>
+          <RoundedBox args={[3, 0.6, 1]} position={[cx, 0.4, cz + 1.2]} radius={0.12} castShadow>
+            <meshStandardMaterial color="#2a2a55" roughness={0.75} />
+          </RoundedBox>
+          {/* Arcade cabinet */}
+          <mesh position={[cx + 2.6, 0.9, cz]} castShadow>
+            <boxGeometry args={[0.8, 1.8, 0.7]} />
+            <meshStandardMaterial color="#20204a" emissive="#22d3ee" emissiveIntensity={0.25} />
+          </mesh>
+        </group>
+      );
+    case 'cafe':
+      return (
+        <group>
+          {/* Bar counter */}
+          <RoundedBox args={[6, 1.1, 0.9]} position={[cx, 0.55, cz + 1.6]} radius={0.05} castShadow>
+            <meshStandardMaterial color={wood} roughness={0.4} />
+          </RoundedBox>
+          {[-2, -0.7, 0.7, 2].map((dx) => (
+            <mesh key={dx} position={[cx + dx, 0.55, cz + 0.4]} castShadow>
+              <cylinderGeometry args={[0.22, 0.22, 0.9]} />
+              <meshStandardMaterial color="#3a3a5c" />
+            </mesh>
+          ))}
+          {/* Small tables */}
+          {[-4, 4].map((dx) => (
+            <mesh key={dx} position={[cx + dx, 0.55, cz - 0.4]} castShadow>
+              <cylinderGeometry args={[0.6, 0.5, 0.9]} />
+              <meshStandardMaterial color={wood} />
+            </mesh>
+          ))}
+        </group>
+      );
+    case 'cr':
+      return (
+        <group>
+          {[-2, 0].map((dx) => (
+            <mesh key={dx} position={[room.cx + dx, 1, room.cz - 1.3]} castShadow>
+              <boxGeometry args={[1.6, 2, 1.6]} />
+              <meshStandardMaterial color="#2a3a4a" roughness={0.7} />
+            </mesh>
+          ))}
+          <RoundedBox args={[2.4, 0.3, 0.7]} position={[room.cx + 2.2, 0.9, room.cz]} radius={0.04} castShadow>
+            <meshStandardMaterial color="#8aa0b4" roughness={0.3} />
+          </RoundedBox>
+        </group>
+      );
+    default:
+      return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Desk
 // ---------------------------------------------------------------------------
 
-function Desk({ position }: { position: [number, number, number] }) {
+function Desk({ position }: { position: V3 }) {
   return (
     <group position={position}>
-      {/* Desktop */}
       <RoundedBox args={[2, 0.08, 1]} position={[0, 0.75, 0]} radius={0.02} castShadow receiveShadow>
         <meshStandardMaterial color="#4c4c72" roughness={0.35} />
       </RoundedBox>
-      {/* Legs */}
       {[
         [-0.9, 0.375, -0.4],
         [0.9, 0.375, -0.4],
         [-0.9, 0.375, 0.4],
         [0.9, 0.375, 0.4],
       ].map((p, i) => (
-        <mesh key={i} position={p as [number, number, number]} castShadow>
+        <mesh key={i} position={p as V3} castShadow>
           <cylinderGeometry args={[0.035, 0.035, 0.75]} />
           <meshStandardMaterial color="#1c1c30" />
         </mesh>
       ))}
-      {/* Monitor (faces -z, toward the sign wall) */}
       <RoundedBox args={[0.9, 0.55, 0.04]} position={[0, 1.15, -0.3]} radius={0.02} castShadow>
         <meshStandardMaterial color="#0e0e1f" emissive="#20305a" emissiveIntensity={0.35} roughness={0.2} />
       </RoundedBox>
@@ -362,11 +539,10 @@ function Desk({ position }: { position: [number, number, number] }) {
         <cylinderGeometry args={[0.05, 0.09, 0.12]} />
         <meshStandardMaterial color="#1c1c30" />
       </mesh>
-      {/* Keyboard */}
       <RoundedBox args={[0.6, 0.03, 0.2]} position={[0, 0.8, 0.05]} radius={0.01}>
         <meshStandardMaterial color="#26263f" roughness={0.5} />
       </RoundedBox>
-      {/* Chair (on +z side, where the person sits facing the monitor) */}
+      {/* Chair */}
       <group position={[0, 0, 0.85]}>
         <mesh position={[0, 0.46, 0]} castShadow>
           <boxGeometry args={[0.55, 0.1, 0.55]} />
@@ -376,33 +552,46 @@ function Desk({ position }: { position: [number, number, number] }) {
           <boxGeometry args={[0.55, 0.55, 0.1]} />
           <meshStandardMaterial color="#3a3a5c" roughness={0.6} />
         </mesh>
-        <mesh position={[0, 0.12, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.3]} />
-          <meshStandardMaterial color="#1c1c30" />
-        </mesh>
       </group>
     </group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Worker (animated humanoid)
+// Worker (animated humanoid with door-aware navigation)
 // ---------------------------------------------------------------------------
 
-type Phase = 'sit' | 'toTarget' | 'pause' | 'toSeat' | 'break';
+type Home =
+  | { kind: 'desk'; seat: V3; faceY: number }
+  | { kind: 'room'; room: Room; seat: V3; faceY: number };
+
+type Phase = 'home' | 'out' | 'pause' | 'back';
 
 function rand(min: number, max: number) {
   return min + Math.random() * (max - min);
 }
 
+// Path from the hub into a room, through its door.
+function enterRoom(r: Room): V3[] {
+  return [r.frontV, r.doorV, r.interiorV];
+}
+
+// Path from a worker's seat out to the hub (through their own door if in a room).
+function exitToHub(home: Home): V3[] {
+  if (home.kind === 'room') {
+    return [home.room.doorV, home.room.frontV, HUB];
+  }
+  return [HUB];
+}
+
 function Worker({
   employee,
-  desk,
+  home,
   isSelected,
   onClick,
 }: {
   employee: EmployeeWithState;
-  desk: [number, number, number];
+  home: Home;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -411,112 +600,151 @@ function Worker({
   const legR = useRef<THREE.Group>(null);
 
   const state = employee.session?.state;
-  const isWorking = state === 'clocked_in';
   const isOnBreak = state === 'on_break';
 
-  const seat = useMemo(() => seatForDesk(desk), [desk]);
-  const statusColor = isWorking ? '#10b981' : isOnBreak ? '#f59e0b' : '#6b7280';
-  const shirtColor = employee.team?.color || '#6366f1';
+  const shirt = employee.team?.color || '#6366f1';
+  const statusColor = state === 'clocked_in' ? '#10b981' : isOnBreak ? '#f59e0b' : '#6b7280';
+
+  const homeRoomId = home.kind === 'room' ? home.room.id : null;
 
   const beh = useRef({
-    phase: (isOnBreak ? 'break' : 'sit') as Phase,
-    timer: rand(6, 16),
-    target: isOnBreak ? COFFEE_SPOT : seat,
+    mode: state,
+    phase: 'home' as Phase,
+    timer: rand(5, 14),
+    path: [] as V3[],
+    idx: 0,
     walkT: Math.random() * 10,
   });
 
-  // Move the root toward a target on the XZ plane. Returns true once arrived.
-  function walkToward(g: THREE.Group, target: [number, number, number], delta: number): boolean {
+  function setLegs(x: number) {
+    if (legL.current) legL.current.rotation.x = x;
+    if (legR.current) legR.current.rotation.x = x;
+  }
+
+  // Walk toward a target; returns true on arrival.
+  function walkToward(g: THREE.Group, target: V3, delta: number): boolean {
     const dx = target[0] - g.position.x;
     const dz = target[2] - g.position.z;
-    const dist = Math.hypot(dx, dz);
-
-    if (dist < 0.1) {
+    const d = Math.hypot(dx, dz);
+    if (d < 0.12) {
       g.position.y = THREE.MathUtils.lerp(g.position.y, 0, 0.2);
-      if (legL.current) legL.current.rotation.x = THREE.MathUtils.lerp(legL.current.rotation.x, 0, 0.2);
-      if (legR.current) legR.current.rotation.x = THREE.MathUtils.lerp(legR.current.rotation.x, 0, 0.2);
       return true;
     }
-
-    const speed = 2.3;
-    const step = Math.min(speed * delta, dist);
-    g.position.x += (dx / dist) * step;
-    g.position.z += (dz / dist) * step;
-    g.rotation.y = Math.atan2(dx, dz); // model faces +z by default
-
+    const step = Math.min(2.4 * delta, d);
+    g.position.x += (dx / d) * step;
+    g.position.z += (dz / d) * step;
+    g.rotation.y = Math.atan2(dx, dz);
     beh.current.walkT += delta * 9;
-    const swing = Math.sin(beh.current.walkT) * 0.6;
-    if (legL.current) legL.current.rotation.x = swing;
-    if (legR.current) legR.current.rotation.x = -swing;
+    const sw = Math.sin(beh.current.walkT) * 0.6;
+    if (legL.current) legL.current.rotation.x = sw;
+    if (legR.current) legR.current.rotation.x = -sw;
     g.position.y = Math.abs(Math.sin(beh.current.walkT)) * 0.06;
     return false;
   }
 
-  function sitAtDesk(g: THREE.Group) {
-    g.position.x = seat[0];
-    g.position.z = seat[2];
+  function sitHome(g: THREE.Group) {
+    g.position.x = home.seat[0];
+    g.position.z = home.seat[2];
     g.position.y = THREE.MathUtils.lerp(g.position.y, -0.12, 0.15);
-    g.rotation.y = Math.PI; // face the desk / sign wall (-z)
+    g.rotation.y = home.faceY;
     if (legL.current) legL.current.rotation.x = THREE.MathUtils.lerp(legL.current.rotation.x, 1.15, 0.15);
     if (legR.current) legR.current.rotation.x = THREE.MathUtils.lerp(legR.current.rotation.x, 1.15, 0.15);
   }
 
-  function standIdle(g: THREE.Group, t: number) {
+  function idle(g: THREE.Group, t: number) {
     g.position.y = THREE.MathUtils.lerp(g.position.y, 0, 0.1);
     if (legL.current) legL.current.rotation.x = THREE.MathUtils.lerp(legL.current.rotation.x, 0, 0.1);
     if (legR.current) legR.current.rotation.x = THREE.MathUtils.lerp(legR.current.rotation.x, 0, 0.1);
     g.rotation.y += Math.sin(t * 1.5) * 0.0015;
   }
 
+  function buildWander(): V3[] {
+    const candidates = ROOMS.filter((r) => r.id !== homeRoomId);
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    return [...exitToHub(home), ...enterRoom(target)];
+  }
+
   useFrame((frame, delta) => {
     const g = root.current;
     if (!g) return;
     const b = beh.current;
-    const d = Math.min(delta, 0.05); // clamp to avoid big jumps on tab refocus
+    const dt = Math.min(delta, 0.05);
     const t = frame.clock.elapsedTime;
 
+    // Reset behaviour when the person's state changes (clock in / break / out).
+    if (b.mode !== state) {
+      b.mode = state;
+      b.phase = 'home';
+      b.idx = 0;
+      b.path = [];
+      b.timer = rand(4, 10);
+      if (isOnBreak) {
+        // Head to the cafe and stay there.
+        b.path = [...exitToHub(home), ...enterRoom(ROOM_BY_ID.get('cafe')!)];
+        b.phase = 'out';
+      }
+    }
+
     if (isOnBreak) {
-      const arrived = walkToward(g, COFFEE_SPOT, d);
-      if (arrived) standIdle(g, t);
+      if (b.phase === 'out') {
+        if (walkToward(g, b.path[b.idx], dt)) {
+          b.idx += 1;
+          if (b.idx >= b.path.length) b.phase = 'pause';
+        }
+      } else {
+        idle(g, t);
+      }
       return;
     }
 
-    // clocked_in behaviour
-    b.timer -= d;
+    // clocked_in
+    b.timer -= dt;
     switch (b.phase) {
-      case 'sit':
-        sitAtDesk(g);
+      case 'home':
+        sitHome(g);
         if (b.timer <= 0) {
-          b.phase = 'toTarget';
-          b.target = SOCIAL_SPOTS[Math.floor(Math.random() * SOCIAL_SPOTS.length)];
+          b.path = buildWander();
+          b.idx = 0;
+          b.phase = 'out';
         }
         break;
-      case 'toTarget':
-        if (walkToward(g, b.target, d)) {
-          b.phase = 'pause';
-          b.timer = rand(3, 6);
+      case 'out':
+        if (walkToward(g, b.path[b.idx], dt)) {
+          b.idx += 1;
+          if (b.idx >= b.path.length) {
+            b.phase = 'pause';
+            b.timer = rand(3, 6);
+          }
         }
         break;
       case 'pause':
-        standIdle(g, t);
-        if (b.timer <= 0) b.phase = 'toSeat';
+        idle(g, t);
+        if (b.timer <= 0) {
+          b.path = [...b.path].reverse().slice(1);
+          b.path.push(home.seat);
+          b.idx = 0;
+          b.phase = 'back';
+        }
         break;
-      case 'toSeat':
-        if (walkToward(g, seat, d)) {
-          b.phase = 'sit';
-          b.timer = rand(10, 22);
+      case 'back':
+        if (walkToward(g, b.path[b.idx], dt)) {
+          b.idx += 1;
+          if (b.idx >= b.path.length) {
+            b.phase = 'home';
+            b.timer = rand(8, 20);
+          }
         }
         break;
     }
   });
 
-  const initialPos: [number, number, number] = isOnBreak ? COFFEE_SPOT : seat;
+  const initialPos: V3 = home.seat;
 
   return (
     <group
       ref={root}
       position={initialPos}
-      rotation={[0, isOnBreak ? 0 : Math.PI, 0]}
+      rotation={[0, home.faceY, 0]}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
@@ -524,7 +752,6 @@ function Worker({
       onPointerOver={() => (document.body.style.cursor = 'pointer')}
       onPointerOut={() => (document.body.style.cursor = 'auto')}
     >
-      {/* Legs */}
       <group ref={legL} position={[0.17, 0.9, 0]}>
         <mesh position={[0, -0.45, 0]} castShadow>
           <cylinderGeometry args={[0.1, 0.09, 0.9]} />
@@ -538,38 +765,27 @@ function Worker({
         </mesh>
       </group>
 
-      {/* Torso */}
       <mesh position={[0, 1.3, 0]} castShadow>
         <capsuleGeometry args={[0.32, 0.6, 8, 16]} />
-        <meshStandardMaterial color={shirtColor} roughness={0.6} />
+        <meshStandardMaterial color={shirt} roughness={0.6} />
       </mesh>
 
-      {/* Arms */}
       <mesh position={[0.4, 1.35, 0]} rotation={[0, 0, 0.25]} castShadow>
         <capsuleGeometry args={[0.1, 0.5, 6, 10]} />
-        <meshStandardMaterial color={shirtColor} roughness={0.6} />
+        <meshStandardMaterial color={shirt} roughness={0.6} />
       </mesh>
       <mesh position={[-0.4, 1.35, 0]} rotation={[0, 0, -0.25]} castShadow>
         <capsuleGeometry args={[0.1, 0.5, 6, 10]} />
-        <meshStandardMaterial color={shirtColor} roughness={0.6} />
+        <meshStandardMaterial color={shirt} roughness={0.6} />
       </mesh>
 
-      {/* Head */}
       <mesh position={[0, 2.0, 0]} castShadow>
         <sphereGeometry args={[0.28, 20, 20]} />
         <meshStandardMaterial color="#e8d5b7" roughness={0.7} />
       </mesh>
 
-      {/* Name + status, always facing the camera */}
       <Billboard position={[0, 2.75, 0]}>
-        <Text
-          fontSize={0.34}
-          color="#ffffff"
-          anchorX="center"
-          anchorY="middle"
-          outlineWidth={0.02}
-          outlineColor="#000000"
-        >
+        <Text fontSize={0.34} color="#ffffff" anchorX="center" anchorY="middle" outlineWidth={0.02} outlineColor="#000000">
           {employee.profile.full_name.split(' ')[0]}
         </Text>
         <mesh position={[0, 0.34, 0]}>
@@ -578,7 +794,6 @@ function Worker({
         </mesh>
       </Billboard>
 
-      {/* Selection ring */}
       {isSelected && (
         <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.6, 0.78, 32]} />
