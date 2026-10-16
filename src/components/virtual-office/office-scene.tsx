@@ -1,14 +1,14 @@
 'use client';
 
-import { Suspense, useRef, useMemo, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Suspense, useRef, useMemo } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
   PerspectiveCamera,
-  Environment,
   Text,
   RoundedBox,
   Float,
+  Billboard,
 } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Profile, AttendanceSession } from '@/types/database';
@@ -20,13 +20,6 @@ interface EmployeeWithState {
   deskPosition: [number, number, number];
 }
 
-interface OfficeSceneProps {
-  employees: EmployeeWithState[];
-  onSelectEmployee: (employee: EmployeeWithState) => void;
-  selectedEmployeeId: string | null;
-  zones: OfficeZone[];
-}
-
 interface OfficeZone {
   id: string;
   name: string;
@@ -35,19 +28,56 @@ interface OfficeZone {
   color: string;
 }
 
+interface OfficeSceneProps {
+  employees: EmployeeWithState[];
+  onSelectEmployee: (employee: EmployeeWithState) => void;
+  selectedEmployeeId: string | null;
+  zones: OfficeZone[];
+}
+
+// Kept for backwards compatibility with the page / sidebar imports.
 const DEFAULT_ZONES: OfficeZone[] = [
-  { id: 'reception', name: 'Reception', position: [0, 0, 8], size: [6, 4], color: '#6366f1' },
-  { id: 'workspace', name: 'General Workspace', position: [-6, 0, 0], size: [10, 12], color: '#3b82f6' },
-  { id: 'operations', name: 'Operations', position: [6, 0, 0], size: [10, 12], color: '#8b5cf6' },
-  { id: 'dev', name: 'Automation & Dev', position: [-6, 0, -10], size: [10, 8], color: '#06b6d4' },
-  { id: 'client', name: 'Client Services', position: [6, 0, -10], size: [10, 8], color: '#f59e0b' },
-  { id: 'meeting', name: 'Meeting Room', position: [0, 0, -16], size: [6, 4], color: '#ec4899' },
-  { id: 'break', name: 'Break Room', position: [14, 0, -4], size: [6, 8], color: '#10b981' },
+  { id: 'workspace', name: 'Workspace', position: [0, 0, -5], size: [18, 16], color: '#3b82f6' },
+  { id: 'break', name: 'Break Room', position: [12, 0, -4], size: [6, 8], color: '#10b981' },
+  { id: 'reception', name: 'Reception', position: [0, 0, 12], size: [6, 4], color: '#6366f1' },
 ];
 
-export function OfficeScene({ employees, onSelectEmployee, selectedEmployeeId, zones }: OfficeSceneProps) {
-  const activeZones = zones.length > 0 ? zones : DEFAULT_ZONES;
+// ---------------------------------------------------------------------------
+// Office layout constants
+// ---------------------------------------------------------------------------
 
+const COLS = 4;
+const SPACING_X = 4.2;
+const SPACING_Z = 5;
+const FRONT_ROW_Z = -9; // closest desk row to the sign wall
+const SIGN_WALL_Z = -14;
+
+// Places people walk to when wandering / on break.
+const COFFEE_SPOT: [number, number, number] = [12, 0, -5];
+const SOCIAL_SPOTS: [number, number, number][] = [
+  [12, 0, -5], // coffee station
+  [12, 0, -8], // water cooler
+  [0, 0, 4], // central aisle
+  [-5, 0, 6], // by the plants
+];
+
+function deskPositionForIndex(i: number): [number, number, number] {
+  const col = i % COLS;
+  const row = Math.floor(i / COLS);
+  const x = (col - (COLS - 1) / 2) * SPACING_X;
+  const z = FRONT_ROW_Z + row * SPACING_Z;
+  return [x, 0, z];
+}
+
+function seatForDesk(desk: [number, number, number]): [number, number, number] {
+  return [desk[0], 0, desk[2] + 0.85];
+}
+
+// ---------------------------------------------------------------------------
+// Scene root
+// ---------------------------------------------------------------------------
+
+export function OfficeScene({ employees, onSelectEmployee, selectedEmployeeId }: OfficeSceneProps) {
   return (
     <Canvas
       shadows
@@ -60,7 +90,6 @@ export function OfficeScene({ employees, onSelectEmployee, selectedEmployeeId, z
           employees={employees}
           onSelectEmployee={onSelectEmployee}
           selectedEmployeeId={selectedEmployeeId}
-          zones={activeZones}
         />
       </Suspense>
     </Canvas>
@@ -71,240 +100,170 @@ function SceneContent({
   employees,
   onSelectEmployee,
   selectedEmployeeId,
-  zones,
-}: OfficeSceneProps) {
+}: Omit<OfficeSceneProps, 'zones'>) {
+  // Stable desk assignment by sorted profile id so a person keeps their desk.
+  const ordered = useMemo(
+    () => [...employees].sort((a, b) => a.profile.id.localeCompare(b.profile.id)),
+    [employees]
+  );
+
+  const desks = useMemo(
+    () => ordered.map((_, i) => deskPositionForIndex(i)),
+    [ordered]
+  );
+
   return (
     <>
-      <PerspectiveCamera makeDefault position={[20, 25, 25]} fov={45} />
+      <PerspectiveCamera makeDefault position={[13, 15, 17]} fov={45} />
       <OrbitControls
-        target={[0, 0, -2]}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 2.5}
-        minDistance={10}
-        maxDistance={50}
+        target={[0, 1.5, -3]}
+        minPolarAngle={Math.PI / 8}
+        maxPolarAngle={Math.PI / 2.2}
+        minDistance={8}
+        maxDistance={46}
         enableDamping
         dampingFactor={0.05}
       />
 
-      <ambientLight intensity={1.2} />
+      {/* Lighting */}
+      <ambientLight intensity={1.15} />
+      <hemisphereLight args={['#ffffff', '#3a3a55', 0.6]} />
       <directionalLight
-        position={[15, 20, 10]}
-        intensity={1.5}
+        position={[12, 20, 8]}
+        intensity={1.4}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
-        shadow-camera-far={60}
-        shadow-camera-left={-25}
-        shadow-camera-right={25}
-        shadow-camera-top={25}
-        shadow-camera-bottom={-25}
+        shadow-camera-far={70}
+        shadow-camera-left={-28}
+        shadow-camera-right={28}
+        shadow-camera-top={28}
+        shadow-camera-bottom={-28}
       />
-      <directionalLight position={[-10, 15, -5]} intensity={0.6} />
-      <pointLight position={[-10, 8, -10]} intensity={0.6} color="#6366f1" />
-      <pointLight position={[10, 8, 5]} intensity={0.5} color="#3b82f6" />
-      <pointLight position={[0, 10, 0]} intensity={0.4} color="#ffffff" />
+      <pointLight position={[-10, 8, 2]} intensity={0.5} color="#6366f1" />
+      <pointLight position={[10, 8, -6]} intensity={0.4} color="#3b82f6" />
 
       <Floor />
-
-      {zones.map((zone) => (
-        <ZoneArea key={zone.id} zone={zone} />
-      ))}
-
-      {zones.map((zone) => (
-        <ZoneLabel key={`label-${zone.id}`} zone={zone} />
-      ))}
-
+      <Rug />
       <OfficeWalls />
+      <SignWall />
       <OfficeDecorations />
 
-      {employees.map((emp) => (
-        <EmployeeAvatar
-          key={emp.profile.id}
-          employee={emp}
-          isSelected={emp.profile.id === selectedEmployeeId}
-          onClick={() => onSelectEmployee(emp)}
-        />
+      {/* Desks are permanent fixtures — always rendered */}
+      {desks.map((d, i) => (
+        <Desk key={`desk-${ordered[i].profile.id}`} position={d} />
       ))}
 
-      <fog attach="fog" args={['#1a1a2e', 50, 90]} />
+      {/* Avatars for active people, seated at their desk or walking around */}
+      {ordered.map((emp, i) => {
+        const state = emp.session?.state;
+        if (state !== 'clocked_in' && state !== 'on_break') return null;
+        return (
+          <Worker
+            key={`worker-${emp.profile.id}`}
+            employee={emp}
+            desk={desks[i]}
+            isSelected={emp.profile.id === selectedEmployeeId}
+            onClick={() => onSelectEmployee(emp)}
+          />
+        );
+      })}
+
+      <fog attach="fog" args={['#1a1a2e', 55, 95]} />
     </>
   );
 }
 
+// ---------------------------------------------------------------------------
+// Environment
+// ---------------------------------------------------------------------------
+
 function Floor() {
   return (
-    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]}>
-      <planeGeometry args={[50, 50]} />
-      <meshStandardMaterial color="#2a2a45" roughness={0.8} />
+    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, 0]}>
+      <planeGeometry args={[60, 60]} />
+      <meshStandardMaterial color="#26263f" roughness={0.9} />
     </mesh>
   );
 }
 
-function ZoneArea({ zone }: { zone: OfficeZone }) {
-  const color = new THREE.Color(zone.color);
+function Rug() {
   return (
-    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[zone.position[0], 0.01, zone.position[2]]}>
-      <planeGeometry args={[zone.size[0], zone.size[1]]} />
-      <meshStandardMaterial
-        color={color}
-        transparent
-        opacity={0.2}
-        roughness={0.7}
-      />
+    <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, -2]}>
+      <planeGeometry args={[22, 20]} />
+      <meshStandardMaterial color="#2f2f52" roughness={0.85} />
     </mesh>
-  );
-}
-
-function ZoneLabel({ zone }: { zone: OfficeZone }) {
-  return (
-    <Text
-      position={[zone.position[0], 0.05, zone.position[2] + zone.size[1] / 2 - 0.5]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      fontSize={0.5}
-      color={zone.color}
-      anchorX="center"
-      anchorY="middle"
-      fillOpacity={0.9}
-    >
-      {zone.name.toUpperCase()}
-    </Text>
   );
 }
 
 function OfficeWalls() {
-  const wallMaterial = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#3a3a60', transparent: true, opacity: 0.55 }),
+  const wall = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#34345a', roughness: 0.85 }),
     []
   );
 
   return (
     <group>
-      {/* Outer walls */}
-      <mesh position={[0, 1.5, 14]} material={wallMaterial} castShadow>
-        <boxGeometry args={[30, 3, 0.15]} />
+      {/* Left wall */}
+      <mesh position={[-17, 2, -2]} material={wall} receiveShadow>
+        <boxGeometry args={[0.3, 4, 32]} />
       </mesh>
-      <mesh position={[0, 1.5, -20]} material={wallMaterial} castShadow>
-        <boxGeometry args={[30, 3, 0.15]} />
+      {/* Right wall */}
+      <mesh position={[17, 2, -2]} material={wall} receiveShadow>
+        <boxGeometry args={[0.3, 4, 32]} />
       </mesh>
-      <mesh position={[-15, 1.5, -3]} material={wallMaterial} castShadow>
-        <boxGeometry args={[0.15, 3, 34]} />
+      {/* Back wall (behind reception) */}
+      <mesh position={[0, 2, 14]} material={wall} receiveShadow>
+        <boxGeometry args={[34, 4, 0.3]} />
       </mesh>
-      <mesh position={[18, 1.5, -3]} material={wallMaterial} castShadow>
-        <boxGeometry args={[0.15, 3, 34]} />
-      </mesh>
-
-      {/* Meeting room walls */}
-      <mesh position={[-3, 1.5, -14]} material={wallMaterial} castShadow>
-        <boxGeometry args={[0.15, 3, 8]} />
-      </mesh>
-      <mesh position={[3, 1.5, -14]} material={wallMaterial} castShadow>
-        <boxGeometry args={[0.15, 3, 8]} />
-      </mesh>
-
-      {/* Break room partition */}
-      <mesh position={[11, 1.5, 0]} material={wallMaterial} castShadow>
-        <boxGeometry args={[0.15, 3, 8]} />
+      {/* Break-room partition */}
+      <mesh position={[9, 1.6, -5]} material={wall} receiveShadow castShadow>
+        <boxGeometry args={[0.2, 3.2, 10]} />
       </mesh>
     </group>
   );
 }
 
-function Desk({ position, rotation = 0 }: { position: [number, number, number]; rotation?: number }) {
-  return (
-    <group position={position} rotation={[0, rotation, 0]}>
-      {/* Desktop */}
-      <RoundedBox args={[1.8, 0.08, 0.9]} position={[0, 0.75, 0]} radius={0.02} castShadow>
-        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
-      </RoundedBox>
-      {/* Legs */}
-      {[[-0.8, 0.375, -0.35], [0.8, 0.375, -0.35], [-0.8, 0.375, 0.35], [0.8, 0.375, 0.35]].map(
-        (pos, i) => (
-          <mesh key={i} position={pos as [number, number, number]} castShadow>
-            <cylinderGeometry args={[0.03, 0.03, 0.75]} />
-            <meshStandardMaterial color="#1a1a30" />
-          </mesh>
-        )
-      )}
-      {/* Monitor */}
-      <RoundedBox args={[0.8, 0.5, 0.03]} position={[0, 1.1, -0.25]} radius={0.02} castShadow>
-        <meshStandardMaterial color="#0f0f20" roughness={0.1} />
-      </RoundedBox>
-      {/* Monitor stand */}
-      <mesh position={[0, 0.85, -0.25]} castShadow>
-        <cylinderGeometry args={[0.05, 0.08, 0.1]} />
-        <meshStandardMaterial color="#1a1a30" />
-      </mesh>
-      {/* Keyboard */}
-      <RoundedBox args={[0.5, 0.02, 0.18]} position={[0, 0.8, 0.1]} radius={0.01}>
-        <meshStandardMaterial color="#252540" roughness={0.5} />
-      </RoundedBox>
-      {/* Chair */}
-      <group position={[0, 0, 0.8]}>
-        <mesh position={[0, 0.45, 0]} castShadow>
-          <boxGeometry args={[0.5, 0.08, 0.5]} />
-          <meshStandardMaterial color="#3b3b5c" />
-        </mesh>
-        <mesh position={[0, 0.7, -0.22]} castShadow>
-          <boxGeometry args={[0.5, 0.5, 0.08]} />
-          <meshStandardMaterial color="#3b3b5c" />
-        </mesh>
-        {/* Chair wheels */}
-        {[[-0.2, 0.08, -0.15], [0.2, 0.08, -0.15], [-0.2, 0.08, 0.15], [0.2, 0.08, 0.15]].map(
-          (pos, i) => (
-            <mesh key={i} position={pos as [number, number, number]}>
-              <sphereGeometry args={[0.04]} />
-              <meshStandardMaterial color="#1a1a30" />
-            </mesh>
-          )
-        )}
-      </group>
-    </group>
-  );
-}
-
-function OfficeDecorations() {
+function SignWall() {
   return (
     <group>
-      {/* Plants */}
-      {[[-12, 0, 6], [8, 0, 12], [-12, 0, -16], [16, 0, 2]].map((pos, i) => (
-        <Plant key={i} position={pos as [number, number, number]} />
-      ))}
-
-      {/* Reception desk */}
-      <RoundedBox args={[4, 1.1, 1]} position={[0, 0.55, 10]} radius={0.05} castShadow>
-        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
-      </RoundedBox>
-
-      {/* Break room table */}
-      <RoundedBox args={[3, 0.08, 1.5]} position={[14, 0.75, -4]} radius={0.03} castShadow>
-        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
-      </RoundedBox>
-      {/* Break room couch */}
-      <RoundedBox args={[2.5, 0.5, 0.8]} position={[14, 0.35, -7]} radius={0.1} castShadow>
-        <meshStandardMaterial color="#6a5b8b" roughness={0.7} />
-      </RoundedBox>
-
-      {/* Meeting room table */}
-      <RoundedBox args={[3, 0.08, 1.5]} position={[0, 0.75, -16]} radius={0.04} castShadow>
-        <meshStandardMaterial color="#4a4a6a" roughness={0.3} />
-      </RoundedBox>
-
-      {/* DaleSolution logo on wall */}
+      {/* The wall the desks face */}
+      <mesh position={[0, 2.4, SIGN_WALL_Z]} receiveShadow>
+        <boxGeometry args={[34, 4.8, 0.3]} />
+        <meshStandardMaterial color="#2b2b4d" roughness={0.8} />
+      </mesh>
+      {/* Accent panel behind the logo */}
+      <mesh position={[0, 2.9, SIGN_WALL_Z + 0.16]}>
+        <planeGeometry args={[12, 2.6]} />
+        <meshStandardMaterial
+          color="#1a1a33"
+          emissive="#20204a"
+          emissiveIntensity={0.4}
+          roughness={0.5}
+        />
+      </mesh>
+      {/* DALESOLUTION sign facing the desks (+z) */}
       <Text
-        position={[0, 2.5, 13.9]}
-        fontSize={0.6}
-        color="#6366f1"
+        position={[0, 3.2, SIGN_WALL_Z + 0.2]}
+        fontSize={1.25}
+        color="#8b9bff"
         anchorX="center"
+        anchorY="middle"
+        letterSpacing={0.04}
+        outlineWidth={0.02}
+        outlineColor="#000000"
       >
         DALESOLUTION
       </Text>
       <Text
-        position={[0, 2.0, 13.9]}
-        fontSize={0.25}
-        color="#8b5cf6"
+        position={[0, 2.25, SIGN_WALL_Z + 0.2]}
+        fontSize={0.42}
+        color="#c3b6ff"
         anchorX="center"
-        fillOpacity={0.7}
+        anchorY="middle"
+        letterSpacing={0.35}
+        fillOpacity={0.85}
       >
         WORKFORCE OS
       </Text>
@@ -312,64 +271,252 @@ function OfficeDecorations() {
   );
 }
 
+function OfficeDecorations() {
+  return (
+    <group>
+      {/* Plants in the corners */}
+      {[
+        [-14, 0, 8],
+        [14, 0, 10],
+        [-14, 0, -12],
+      ].map((p, i) => (
+        <Plant key={i} position={p as [number, number, number]} />
+      ))}
+
+      {/* Reception desk near the entrance */}
+      <RoundedBox args={[4.5, 1.1, 1.1]} position={[0, 0.55, 11]} radius={0.06} castShadow>
+        <meshStandardMaterial color="#44446a" roughness={0.4} />
+      </RoundedBox>
+
+      {/* Break-room: coffee counter + table + couch */}
+      <RoundedBox args={[2.6, 0.9, 0.8]} position={[13.2, 0.45, -5]} radius={0.05} castShadow>
+        <meshStandardMaterial color="#44446a" roughness={0.4} />
+      </RoundedBox>
+      <CoffeeMachine position={[13.2, 0.9, -5]} />
+      <RoundedBox args={[2.4, 0.55, 0.9]} position={[12.5, 0.4, -9]} radius={0.12} castShadow>
+        <meshStandardMaterial color="#6a5b8b" roughness={0.75} />
+      </RoundedBox>
+    </group>
+  );
+}
+
+function CoffeeMachine({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <RoundedBox args={[0.5, 0.6, 0.45]} position={[0, 0.3, 0]} radius={0.04} castShadow>
+        <meshStandardMaterial color="#1d1d30" roughness={0.4} />
+      </RoundedBox>
+      <mesh position={[0, 0.65, 0]}>
+        <cylinderGeometry args={[0.07, 0.07, 0.12]} />
+        <meshStandardMaterial color="#8b9bff" emissive="#8b9bff" emissiveIntensity={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
 function Plant({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
-      <mesh position={[0, 0.3, 0]} castShadow>
-        <cylinderGeometry args={[0.2, 0.25, 0.6]} />
-        <meshStandardMaterial color="#2a2a3a" roughness={0.8} />
+      <mesh position={[0, 0.35, 0]} castShadow>
+        <cylinderGeometry args={[0.28, 0.34, 0.7]} />
+        <meshStandardMaterial color="#2f2f44" roughness={0.8} />
       </mesh>
-      <Float speed={2} rotationIntensity={0.1} floatIntensity={0.1}>
-        <mesh position={[0, 0.9, 0]}>
-          <sphereGeometry args={[0.4, 8, 6]} />
-          <meshStandardMaterial color="#1a5c3a" roughness={0.8} />
+      <Float speed={1.6} rotationIntensity={0.1} floatIntensity={0.12}>
+        <mesh position={[0, 1.1, 0]} castShadow>
+          <sphereGeometry args={[0.55, 10, 8]} />
+          <meshStandardMaterial color="#2f7d52" roughness={0.85} />
         </mesh>
       </Float>
     </group>
   );
 }
 
-function EmployeeAvatar({
+// ---------------------------------------------------------------------------
+// Desk
+// ---------------------------------------------------------------------------
+
+function Desk({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      {/* Desktop */}
+      <RoundedBox args={[2, 0.08, 1]} position={[0, 0.75, 0]} radius={0.02} castShadow receiveShadow>
+        <meshStandardMaterial color="#4c4c72" roughness={0.35} />
+      </RoundedBox>
+      {/* Legs */}
+      {[
+        [-0.9, 0.375, -0.4],
+        [0.9, 0.375, -0.4],
+        [-0.9, 0.375, 0.4],
+        [0.9, 0.375, 0.4],
+      ].map((p, i) => (
+        <mesh key={i} position={p as [number, number, number]} castShadow>
+          <cylinderGeometry args={[0.035, 0.035, 0.75]} />
+          <meshStandardMaterial color="#1c1c30" />
+        </mesh>
+      ))}
+      {/* Monitor (faces -z, toward the sign wall) */}
+      <RoundedBox args={[0.9, 0.55, 0.04]} position={[0, 1.15, -0.3]} radius={0.02} castShadow>
+        <meshStandardMaterial color="#0e0e1f" emissive="#20305a" emissiveIntensity={0.35} roughness={0.2} />
+      </RoundedBox>
+      <mesh position={[0, 0.86, -0.3]} castShadow>
+        <cylinderGeometry args={[0.05, 0.09, 0.12]} />
+        <meshStandardMaterial color="#1c1c30" />
+      </mesh>
+      {/* Keyboard */}
+      <RoundedBox args={[0.6, 0.03, 0.2]} position={[0, 0.8, 0.05]} radius={0.01}>
+        <meshStandardMaterial color="#26263f" roughness={0.5} />
+      </RoundedBox>
+      {/* Chair (on +z side, where the person sits facing the monitor) */}
+      <group position={[0, 0, 0.85]}>
+        <mesh position={[0, 0.46, 0]} castShadow>
+          <boxGeometry args={[0.55, 0.1, 0.55]} />
+          <meshStandardMaterial color="#3a3a5c" roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.78, 0.26]} castShadow>
+          <boxGeometry args={[0.55, 0.55, 0.1]} />
+          <meshStandardMaterial color="#3a3a5c" roughness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.05, 0.05, 0.3]} />
+          <meshStandardMaterial color="#1c1c30" />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Worker (animated humanoid)
+// ---------------------------------------------------------------------------
+
+type Phase = 'sit' | 'toTarget' | 'pause' | 'toSeat' | 'break';
+
+function rand(min: number, max: number) {
+  return min + Math.random() * (max - min);
+}
+
+function Worker({
   employee,
+  desk,
   isSelected,
   onClick,
 }: {
   employee: EmployeeWithState;
+  desk: [number, number, number];
   isSelected: boolean;
   onClick: () => void;
 }) {
-  const ref = useRef<THREE.Group>(null);
+  const root = useRef<THREE.Group>(null);
+  const legL = useRef<THREE.Group>(null);
+  const legR = useRef<THREE.Group>(null);
+
   const state = employee.session?.state;
   const isWorking = state === 'clocked_in';
   const isOnBreak = state === 'on_break';
-  const isActive = isWorking || isOnBreak;
 
-  const breakRoomPos = useMemo<[number, number, number]>(() => {
-    const hash = employee.profile.id.charCodeAt(0) + employee.profile.id.charCodeAt(1);
-    return [
-      14 + ((hash % 20) / 10 - 1),
-      0,
-      -4 + ((hash % 30) / 10 - 1.5),
-    ];
-  }, [employee.profile.id]);
-
-  const position = isOnBreak ? breakRoomPos : employee.deskPosition;
-
+  const seat = useMemo(() => seatForDesk(desk), [desk]);
   const statusColor = isWorking ? '#10b981' : isOnBreak ? '#f59e0b' : '#6b7280';
+  const shirtColor = employee.team?.color || '#6366f1';
 
-  useFrame((_, delta) => {
-    if (!ref.current) return;
-    if (isWorking) {
-      ref.current.children[0].rotation.y += Math.sin(Date.now() * 0.001) * 0.001;
+  const beh = useRef({
+    phase: (isOnBreak ? 'break' : 'sit') as Phase,
+    timer: rand(6, 16),
+    target: isOnBreak ? COFFEE_SPOT : seat,
+    walkT: Math.random() * 10,
+  });
+
+  // Move the root toward a target on the XZ plane. Returns true once arrived.
+  function walkToward(g: THREE.Group, target: [number, number, number], delta: number): boolean {
+    const dx = target[0] - g.position.x;
+    const dz = target[2] - g.position.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist < 0.1) {
+      g.position.y = THREE.MathUtils.lerp(g.position.y, 0, 0.2);
+      if (legL.current) legL.current.rotation.x = THREE.MathUtils.lerp(legL.current.rotation.x, 0, 0.2);
+      if (legR.current) legR.current.rotation.x = THREE.MathUtils.lerp(legR.current.rotation.x, 0, 0.2);
+      return true;
+    }
+
+    const speed = 2.3;
+    const step = Math.min(speed * delta, dist);
+    g.position.x += (dx / dist) * step;
+    g.position.z += (dz / dist) * step;
+    g.rotation.y = Math.atan2(dx, dz); // model faces +z by default
+
+    beh.current.walkT += delta * 9;
+    const swing = Math.sin(beh.current.walkT) * 0.6;
+    if (legL.current) legL.current.rotation.x = swing;
+    if (legR.current) legR.current.rotation.x = -swing;
+    g.position.y = Math.abs(Math.sin(beh.current.walkT)) * 0.06;
+    return false;
+  }
+
+  function sitAtDesk(g: THREE.Group) {
+    g.position.x = seat[0];
+    g.position.z = seat[2];
+    g.position.y = THREE.MathUtils.lerp(g.position.y, -0.12, 0.15);
+    g.rotation.y = Math.PI; // face the desk / sign wall (-z)
+    if (legL.current) legL.current.rotation.x = THREE.MathUtils.lerp(legL.current.rotation.x, 1.15, 0.15);
+    if (legR.current) legR.current.rotation.x = THREE.MathUtils.lerp(legR.current.rotation.x, 1.15, 0.15);
+  }
+
+  function standIdle(g: THREE.Group, t: number) {
+    g.position.y = THREE.MathUtils.lerp(g.position.y, 0, 0.1);
+    if (legL.current) legL.current.rotation.x = THREE.MathUtils.lerp(legL.current.rotation.x, 0, 0.1);
+    if (legR.current) legR.current.rotation.x = THREE.MathUtils.lerp(legR.current.rotation.x, 0, 0.1);
+    g.rotation.y += Math.sin(t * 1.5) * 0.0015;
+  }
+
+  useFrame((frame, delta) => {
+    const g = root.current;
+    if (!g) return;
+    const b = beh.current;
+    const d = Math.min(delta, 0.05); // clamp to avoid big jumps on tab refocus
+    const t = frame.clock.elapsedTime;
+
+    if (isOnBreak) {
+      const arrived = walkToward(g, COFFEE_SPOT, d);
+      if (arrived) standIdle(g, t);
+      return;
+    }
+
+    // clocked_in behaviour
+    b.timer -= d;
+    switch (b.phase) {
+      case 'sit':
+        sitAtDesk(g);
+        if (b.timer <= 0) {
+          b.phase = 'toTarget';
+          b.target = SOCIAL_SPOTS[Math.floor(Math.random() * SOCIAL_SPOTS.length)];
+        }
+        break;
+      case 'toTarget':
+        if (walkToward(g, b.target, d)) {
+          b.phase = 'pause';
+          b.timer = rand(3, 6);
+        }
+        break;
+      case 'pause':
+        standIdle(g, t);
+        if (b.timer <= 0) b.phase = 'toSeat';
+        break;
+      case 'toSeat':
+        if (walkToward(g, seat, d)) {
+          b.phase = 'sit';
+          b.timer = rand(10, 22);
+        }
+        break;
     }
   });
 
-  if (!isActive) return null;
+  const initialPos: [number, number, number] = isOnBreak ? COFFEE_SPOT : seat;
 
   return (
     <group
-      ref={ref}
-      position={position}
+      ref={root}
+      position={initialPos}
+      rotation={[0, isOnBreak ? 0 : Math.PI, 0]}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
@@ -377,52 +524,67 @@ function EmployeeAvatar({
       onPointerOver={() => (document.body.style.cursor = 'pointer')}
       onPointerOut={() => (document.body.style.cursor = 'auto')}
     >
-      {/* Body */}
-      <mesh position={[0, 0.6, 0]} castShadow>
-        <capsuleGeometry args={[0.2, 0.4, 8, 16]} />
-        <meshStandardMaterial
-          color={employee.team?.color || '#6366f1'}
-          roughness={0.6}
-        />
+      {/* Legs */}
+      <group ref={legL} position={[0.17, 0.9, 0]}>
+        <mesh position={[0, -0.45, 0]} castShadow>
+          <cylinderGeometry args={[0.1, 0.09, 0.9]} />
+          <meshStandardMaterial color="#2a2a40" roughness={0.7} />
+        </mesh>
+      </group>
+      <group ref={legR} position={[-0.17, 0.9, 0]}>
+        <mesh position={[0, -0.45, 0]} castShadow>
+          <cylinderGeometry args={[0.1, 0.09, 0.9]} />
+          <meshStandardMaterial color="#2a2a40" roughness={0.7} />
+        </mesh>
+      </group>
+
+      {/* Torso */}
+      <mesh position={[0, 1.3, 0]} castShadow>
+        <capsuleGeometry args={[0.32, 0.6, 8, 16]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.6} />
+      </mesh>
+
+      {/* Arms */}
+      <mesh position={[0.4, 1.35, 0]} rotation={[0, 0, 0.25]} castShadow>
+        <capsuleGeometry args={[0.1, 0.5, 6, 10]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.6} />
+      </mesh>
+      <mesh position={[-0.4, 1.35, 0]} rotation={[0, 0, -0.25]} castShadow>
+        <capsuleGeometry args={[0.1, 0.5, 6, 10]} />
+        <meshStandardMaterial color={shirtColor} roughness={0.6} />
       </mesh>
 
       {/* Head */}
-      <mesh position={[0, 1.15, 0]} castShadow>
-        <sphereGeometry args={[0.18, 16, 16]} />
+      <mesh position={[0, 2.0, 0]} castShadow>
+        <sphereGeometry args={[0.28, 20, 20]} />
         <meshStandardMaterial color="#e8d5b7" roughness={0.7} />
       </mesh>
 
-      {/* Status indicator */}
-      <Float speed={3} floatIntensity={0.15}>
-        <mesh position={[0, 1.55, 0]}>
-          <sphereGeometry args={[0.06, 8, 8]} />
-          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.5} />
+      {/* Name + status, always facing the camera */}
+      <Billboard position={[0, 2.75, 0]}>
+        <Text
+          fontSize={0.34}
+          color="#ffffff"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.02}
+          outlineColor="#000000"
+        >
+          {employee.profile.full_name.split(' ')[0]}
+        </Text>
+        <mesh position={[0, 0.34, 0]}>
+          <sphereGeometry args={[0.1, 10, 10]} />
+          <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.6} />
         </mesh>
-      </Float>
-
-      {/* Name label */}
-      <Text
-        position={[0, 1.7, 0]}
-        fontSize={0.15}
-        color="#ffffff"
-        anchorX="center"
-        fillOpacity={0.9}
-        outlineWidth={0.01}
-        outlineColor="#000000"
-      >
-        {employee.profile.full_name.split(' ')[0]}
-      </Text>
+      </Billboard>
 
       {/* Selection ring */}
       {isSelected && (
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.5, 0.6, 32]} />
-          <meshBasicMaterial color="#6366f1" transparent opacity={0.6} />
+        <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.6, 0.78, 32]} />
+          <meshBasicMaterial color="#8b9bff" transparent opacity={0.7} side={THREE.DoubleSide} />
         </mesh>
       )}
-
-      {/* Desk for working employees */}
-      {isWorking && <Desk position={[0, 0, -0.8]} />}
     </group>
   );
 }
