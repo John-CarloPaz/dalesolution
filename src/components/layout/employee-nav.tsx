@@ -55,7 +55,7 @@ export function EmployeeNav() {
       <nav className="hidden md:flex md:flex-col md:w-60 md:border-r md:bg-card md:min-h-screen">
         <div className="px-4 py-5 border-b">
           <p className="text-sm font-semibold text-foreground tracking-tight">
-            Employee Portal
+            DaleSolution Portal
           </p>
         </div>
         <div className="flex flex-col gap-1 p-2 flex-1">

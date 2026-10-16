@@ -167,21 +167,42 @@ export default function ClientsPage() {
     setDialogOpen(true);
   }
 
-  // Assign a schedule to an employee: end any active assignment, then add the new one
-  async function assignScheduleToEmployee(profileId: string, newScheduleId: string) {
-    const nowIso = new Date().toISOString();
+  // Assign a schedule to an employee: end any active assignment, then add the new one.
+  // Returns an error message on failure, or null on success.
+  async function assignScheduleToEmployee(
+    profileId: string,
+    newScheduleId: string
+  ): Promise<string | null> {
+    const today = new Date().toISOString().slice(0, 10); // date column
 
-    await supabase
+    // If this schedule is already the active one, nothing to do.
+    const { data: current } = await supabase
       .from('schedule_assignments')
-      .update({ effective_until: nowIso })
+      .select('schedule_id')
+      .eq('profile_id', profileId)
+      .is('effective_until', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (current?.schedule_id === newScheduleId) return null;
+
+    const { error: endError } = await supabase
+      .from('schedule_assignments')
+      .update({ effective_until: today })
       .eq('profile_id', profileId)
       .is('effective_until', null);
 
-    await supabase.from('schedule_assignments').insert({
-      profile_id: profileId,
-      schedule_id: newScheduleId,
-      effective_from: nowIso,
-    });
+    if (endError) return endError.message;
+
+    const { error: insertError } = await supabase
+      .from('schedule_assignments')
+      .insert({
+        profile_id: profileId,
+        schedule_id: newScheduleId,
+        effective_from: today,
+      });
+
+    return insertError?.message ?? null;
   }
 
   async function handleSave() {
@@ -225,8 +246,12 @@ export default function ClientsPage() {
 
     // Propagate the client's schedule to the assigned employee
     if (resolvedAssignedTo && resolvedScheduleId) {
-      await assignScheduleToEmployee(resolvedAssignedTo, resolvedScheduleId);
-      toast.success(editing ? 'Client updated & schedule assigned' : 'Client added & schedule assigned');
+      const assignError = await assignScheduleToEmployee(resolvedAssignedTo, resolvedScheduleId);
+      if (assignError) {
+        toast.error(`Client saved, but schedule assignment failed: ${assignError}`);
+      } else {
+        toast.success(editing ? 'Client updated & schedule assigned' : 'Client added & schedule assigned');
+      }
     } else {
       toast.success(editing ? 'Client updated' : 'Client added');
     }
