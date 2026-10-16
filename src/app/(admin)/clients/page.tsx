@@ -54,7 +54,7 @@ import { useSession } from '@/hooks/use-session';
 import { createClient } from '@/lib/supabase/client';
 import { getInitials } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import type { Client, Profile } from '@/types/database';
+import type { Client, WorkSchedule } from '@/types/database';
 import { toast } from 'sonner';
 
 interface EmployeeOption {
@@ -62,13 +62,15 @@ interface EmployeeOption {
   full_name: string;
 }
 
+type ScheduleOption = Pick<WorkSchedule, 'id' | 'name' | 'start_time' | 'end_time'>;
+
 export default function ClientsPage() {
   const { profile, orgId } = useSession();
   const supabase = createClient();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
-  const [scheduleByEmployee, setScheduleByEmployee] = useState<Record<string, string>>({});
+  const [schedules, setSchedules] = useState<ScheduleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -81,6 +83,7 @@ export default function ClientsPage() {
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('none');
+  const [scheduleId, setScheduleId] = useState('none');
   const [saving, setSaving] = useState(false);
 
   // Delete confirm
@@ -90,12 +93,16 @@ export default function ClientsPage() {
     () => new Map(employees.map((e) => [e.id, e.full_name])),
     [employees]
   );
+  const scheduleNameById = useMemo(
+    () => new Map(schedules.map((s) => [s.id, s.name])),
+    [schedules]
+  );
 
   const fetchData = useCallback(async () => {
     if (!orgId) return;
     setLoading(true);
 
-    const [clientsRes, profilesRes, assignmentsRes] = await Promise.all([
+    const [clientsRes, profilesRes, schedulesRes] = await Promise.all([
       supabase
         .from('clients')
         .select('*')
@@ -108,33 +115,15 @@ export default function ClientsPage() {
         .eq('status', 'active')
         .order('full_name'),
       supabase
-        .from('schedule_assignments')
-        .select('profile_id, schedule_id')
-        .is('effective_until', null),
+        .from('work_schedules')
+        .select('id, name, start_time, end_time')
+        .eq('org_id', orgId)
+        .order('name'),
     ]);
 
     setClients(clientsRes.data ?? []);
     setEmployees((profilesRes.data as EmployeeOption[]) ?? []);
-
-    // Build employee -> schedule name map
-    const assignments = assignmentsRes.data ?? [];
-    const scheduleIds = [...new Set(assignments.map((a) => a.schedule_id))];
-    const scheduleNameById = new Map<string, string>();
-
-    if (scheduleIds.length > 0) {
-      const { data: scheds } = await supabase
-        .from('work_schedules')
-        .select('id, name')
-        .in('id', scheduleIds);
-      (scheds ?? []).forEach((s) => scheduleNameById.set(s.id, s.name));
-    }
-
-    const empSchedule: Record<string, string> = {};
-    assignments.forEach((a) => {
-      const sname = scheduleNameById.get(a.schedule_id);
-      if (sname) empSchedule[a.profile_id] = sname;
-    });
-    setScheduleByEmployee(empSchedule);
+    setSchedules((schedulesRes.data as ScheduleOption[]) ?? []);
 
     setLoading(false);
   }, [orgId, supabase]);
@@ -162,6 +151,7 @@ export default function ClientsPage() {
     setPhone('');
     setNotes('');
     setAssignedTo('none');
+    setScheduleId('none');
     setDialogOpen(true);
   }
 
@@ -173,12 +163,33 @@ export default function ClientsPage() {
     setPhone(client.phone ?? '');
     setNotes(client.notes ?? '');
     setAssignedTo(client.assigned_to ?? 'none');
+    setScheduleId(client.schedule_id ?? 'none');
     setDialogOpen(true);
+  }
+
+  // Assign a schedule to an employee: end any active assignment, then add the new one
+  async function assignScheduleToEmployee(profileId: string, newScheduleId: string) {
+    const nowIso = new Date().toISOString();
+
+    await supabase
+      .from('schedule_assignments')
+      .update({ effective_until: nowIso })
+      .eq('profile_id', profileId)
+      .is('effective_until', null);
+
+    await supabase.from('schedule_assignments').insert({
+      profile_id: profileId,
+      schedule_id: newScheduleId,
+      effective_from: nowIso,
+    });
   }
 
   async function handleSave() {
     if (!orgId || !name.trim()) return;
     setSaving(true);
+
+    const resolvedAssignedTo = assignedTo !== 'none' ? assignedTo : null;
+    const resolvedScheduleId = scheduleId !== 'none' ? scheduleId : null;
 
     const payload = {
       name: name.trim(),
@@ -186,7 +197,8 @@ export default function ClientsPage() {
       email: email.trim() || null,
       phone: phone.trim() || null,
       notes: notes.trim() || null,
-      assigned_to: assignedTo !== 'none' ? assignedTo : null,
+      assigned_to: resolvedAssignedTo,
+      schedule_id: resolvedScheduleId,
     };
 
     if (editing) {
@@ -199,7 +211,6 @@ export default function ClientsPage() {
         setSaving(false);
         return;
       }
-      toast.success('Client updated');
     } else {
       const { error } = await supabase.from('clients').insert({
         org_id: orgId,
@@ -210,7 +221,14 @@ export default function ClientsPage() {
         setSaving(false);
         return;
       }
-      toast.success('Client added');
+    }
+
+    // Propagate the client's schedule to the assigned employee
+    if (resolvedAssignedTo && resolvedScheduleId) {
+      await assignScheduleToEmployee(resolvedAssignedTo, resolvedScheduleId);
+      toast.success(editing ? 'Client updated & schedule assigned' : 'Client added & schedule assigned');
+    } else {
+      toast.success(editing ? 'Client updated' : 'Client added');
     }
 
     setSaving(false);
@@ -311,8 +329,8 @@ export default function ClientsPage() {
                 const assigneeName = client.assigned_to
                   ? employeeNameMap.get(client.assigned_to)
                   : null;
-                const scheduleTag = client.assigned_to
-                  ? scheduleByEmployee[client.assigned_to]
+                const scheduleTag = client.schedule_id
+                  ? scheduleNameById.get(client.schedule_id)
                   : null;
 
                 return (
@@ -454,6 +472,28 @@ export default function ClientsPage() {
               </div>
             </div>
             <div className="space-y-1.5">
+              <Label>Schedule</Label>
+              <Select value={scheduleId} onValueChange={(v) => setScheduleId(v ?? 'none')}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="No schedule" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No schedule</SelectItem>
+                  {schedules.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.start_time.slice(0, 5)}–{s.end_time.slice(0, 5)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {schedules.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  No schedules exist yet — create one on the Schedules page.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
               <Label>Assigned To</Label>
               <Select value={assignedTo} onValueChange={(v) => setAssignedTo(v ?? 'none')}>
                 <SelectTrigger className="w-full">
@@ -464,15 +504,12 @@ export default function ClientsPage() {
                   {employees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
                       {emp.full_name}
-                      {scheduleByEmployee[emp.id]
-                        ? ` — ${scheduleByEmployee[emp.id]}`
-                        : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                The client inherits the schedule tag of the assigned employee.
+                The selected schedule is also assigned to this employee.
               </p>
             </div>
             <div className="space-y-1.5">

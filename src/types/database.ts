@@ -464,6 +464,7 @@ export interface Database {
           notes: string | null;
           status: string;
           assigned_to: string | null;
+          schedule_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -477,6 +478,7 @@ export interface Database {
           notes?: string | null;
           status?: string;
           assigned_to?: string | null;
+          schedule_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -488,6 +490,7 @@ export interface Database {
           notes?: string | null;
           status?: string;
           assigned_to?: string | null;
+          schedule_id?: string | null;
           updated_at?: string;
         };
       Relationships: [];};
