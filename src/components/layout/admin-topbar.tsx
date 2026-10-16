@@ -33,7 +33,8 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 const PATH_LABELS: Record<string, string> = {
   dashboard: 'Overview',
   attendance: 'Attendance',
-  employees: 'Employees',
+  employees: 'Virtual Assistants',
+  clients: 'Clients',
   teams: 'Teams',
   schedules: 'Schedules',
   analytics: 'Analytics',

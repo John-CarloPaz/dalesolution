@@ -93,7 +93,7 @@ function EmptyState({ status }: { status: string }) {
     },
     all: {
       title: 'No correction requests',
-      subtitle: 'Correction requests from employees will appear here.',
+      subtitle: 'Correction requests from virtual assistants will appear here.',
       icon: <FileEdit className="size-6 text-muted-foreground" />,
     },
   };
@@ -125,7 +125,7 @@ function CorrectionTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Employee</TableHead>
+          <TableHead>Virtual Assistant</TableHead>
           <TableHead className="hidden md:table-cell">Date</TableHead>
           <TableHead className="hidden lg:table-cell">Reason</TableHead>
           <TableHead className="hidden sm:table-cell">Requested Changes</TableHead>
@@ -325,7 +325,7 @@ export default function CorrectionsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Corrections</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Review and manage employee attendance correction requests.
+          Review and manage virtual assistant attendance correction requests.
         </p>
       </div>
 
@@ -519,7 +519,7 @@ export default function CorrectionsPage() {
               {/* Reason */}
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Employee&apos;s Reason
+                  Virtual Assistant&apos;s Reason
                 </p>
                 <p className="text-sm rounded-lg bg-muted/50 p-3">
                   {selectedRecord.correction.reason}

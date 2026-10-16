@@ -108,8 +108,8 @@ const WEBHOOK_EVENTS = [
   { value: 'attendance.break', label: 'Break' },
   { value: 'correction.created', label: 'Correction Created' },
   { value: 'correction.reviewed', label: 'Correction Reviewed' },
-  { value: 'employee.invited', label: 'Employee Invited' },
-  { value: 'employee.joined', label: 'Employee Joined' },
+  { value: 'employee.invited', label: 'Virtual Assistant Invited' },
+  { value: 'employee.joined', label: 'Virtual Assistant Joined' },
 ];
 
 // -- Loading skeleton
@@ -272,7 +272,7 @@ function AttendanceTab({
           <div className="space-y-0.5">
             <Label>Auto Clock-Out</Label>
             <p className="text-xs text-muted-foreground">
-              Automatically clock out employees after a set time.
+              Automatically clock out virtual assistants after a set time.
             </p>
           </div>
           <Switch checked={autoClockOut} onCheckedChange={setAutoClockOut} />
@@ -360,7 +360,7 @@ function NotificationsTab({
           <div className="space-y-0.5">
             <Label>Late Arrival</Label>
             <p className="text-xs text-muted-foreground">
-              Notify when an employee arrives late.
+              Notify when a virtual assistant arrives late.
             </p>
           </div>
           <Switch checked={notifyLate} onCheckedChange={setNotifyLate} />
@@ -378,9 +378,9 @@ function NotificationsTab({
 
         <div className="flex items-center justify-between max-w-sm">
           <div className="space-y-0.5">
-            <Label>Employee Joined</Label>
+            <Label>Virtual Assistant Joined</Label>
             <p className="text-xs text-muted-foreground">
-              Notify when a new employee joins the organization.
+              Notify when a new virtual assistant joins the organization.
             </p>
           </div>
           <Switch checked={notifyJoined} onCheckedChange={setNotifyJoined} />

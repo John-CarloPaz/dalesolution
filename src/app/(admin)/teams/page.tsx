@@ -199,7 +199,7 @@ export default function TeamsPage() {
           </div>
           <h3 className="text-base font-semibold">No teams yet</h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-            Create your first team to organize employees, assign leads, and track attendance by group.
+            Create your first team to organize virtual assistants, assign leads, and track attendance by group.
           </p>
           <Button
             className="mt-4"

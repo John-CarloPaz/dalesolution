@@ -179,7 +179,7 @@ export function AdminSidebar() {
                     {profile?.full_name ?? 'User'}
                   </span>
                   <span className="text-xs text-sidebar-foreground/60 truncate">
-                    {profile?.role ? ROLE_LABELS[profile.role] : 'Employee'}
+                    {profile?.role ? ROLE_LABELS[profile.role] : 'Virtual Assistant'}
                   </span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden" />

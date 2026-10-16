@@ -91,7 +91,7 @@ function TableSkeleton() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Employee</TableHead>
+            <TableHead>Virtual Assistant</TableHead>
             <TableHead>Role</TableHead>
             <TableHead className="hidden md:table-cell">Team</TableHead>
             <TableHead className="hidden lg:table-cell">Status</TableHead>
@@ -346,14 +346,14 @@ export default function EmployeesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Employees</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Virtual Assistants</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Manage your team members, roles, and invitations.
           </p>
         </div>
         <Button onClick={() => { setLastInviteUrl(null); setInviteOpen(true); }}>
           <UserPlus className="size-4" />
-          Invite Employee
+          Invite Virtual Assistant
         </Button>
       </div>
 
@@ -379,7 +379,7 @@ export default function EmployeesPage() {
               <SelectItem value="owner">Owner</SelectItem>
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="team_lead">Team Lead</SelectItem>
-              <SelectItem value="employee">Employee</SelectItem>
+              <SelectItem value="employee">Virtual Assistant</SelectItem>
             </SelectContent>
           </Select>
 
@@ -414,7 +414,7 @@ export default function EmployeesPage() {
       {/* Employee count */}
       {!loading && (
         <p className="text-xs text-muted-foreground">
-          Showing {filtered.length} of {employees.length} employees
+          Showing {filtered.length} of {employees.length} virtual assistants
         </p>
       )}
 
@@ -426,7 +426,7 @@ export default function EmployeesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
+                <TableHead>Virtual Assistant</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="hidden md:table-cell">Team</TableHead>
                 <TableHead className="hidden lg:table-cell">Status</TableHead>
@@ -452,7 +452,7 @@ export default function EmployeesPage() {
                         )}
                       </div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        No employees found
+                        No virtual assistants found
                       </p>
                       <p className="text-xs text-muted-foreground/70">
                         {search ||
@@ -460,7 +460,7 @@ export default function EmployeesPage() {
                         teamFilter !== 'all' ||
                         statusFilter !== 'all'
                           ? 'Try adjusting your search or filters.'
-                          : 'Invite your first employee to get started.'}
+                          : 'Invite your first virtual assistant to get started.'}
                       </p>
                     </div>
                   </TableCell>
@@ -614,7 +614,7 @@ export default function EmployeesPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Invite Employee</DialogTitle>
+            <DialogTitle>Invite Virtual Assistant</DialogTitle>
             <DialogDescription>
               Send an invitation to join your organization.
             </DialogDescription>
@@ -649,7 +649,7 @@ export default function EmployeesPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="employee">Virtual Assistant</SelectItem>
                   <SelectItem value="team_lead">Team Lead</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>

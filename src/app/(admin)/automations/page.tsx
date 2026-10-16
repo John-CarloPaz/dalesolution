@@ -22,7 +22,7 @@ const AUTOMATIONS: Automation[] = [
   {
     id: 'missed-checkin',
     name: 'Missed Check-In Alert',
-    description: 'Notify admins when a scheduled employee has not checked in within the configured time window',
+    description: 'Notify admins when a scheduled virtual assistant has not checked in within the configured time window',
     icon: <AlertTriangle className="h-5 w-5" />,
     enabled: true,
     category: 'alerts',
@@ -30,7 +30,7 @@ const AUTOMATIONS: Automation[] = [
   {
     id: 'late-arrival',
     name: 'Late Arrival Notification',
-    description: 'Create an attendance exception and notify the manager when an employee arrives late',
+    description: 'Create an attendance exception and notify the manager when a virtual assistant arrives late',
     icon: <Clock className="h-5 w-5" />,
     enabled: true,
     category: 'alerts',
@@ -38,7 +38,7 @@ const AUTOMATIONS: Automation[] = [
   {
     id: 'missed-clockout',
     name: 'Missed Clock-Out Reminder',
-    description: 'Remind employees and escalate when a shift exceeds the maximum duration without a clock-out',
+    description: 'Remind virtual assistants and escalate when a shift exceeds the maximum duration without a clock-out',
     icon: <AlertTriangle className="h-5 w-5" />,
     enabled: true,
     category: 'alerts',
@@ -61,8 +61,8 @@ const AUTOMATIONS: Automation[] = [
   },
   {
     id: 'onboarding',
-    name: 'Employee Onboarding',
-    description: 'Trigger onboarding workflows when a new employee accepts their invitation',
+    name: 'Virtual Assistant Onboarding',
+    description: 'Trigger onboarding workflows when a new virtual assistant accepts their invitation',
     icon: <CheckCircle2 className="h-5 w-5" />,
     enabled: true,
     category: 'webhooks',

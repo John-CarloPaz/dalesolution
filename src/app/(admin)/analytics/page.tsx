@@ -230,7 +230,7 @@ function LeaderboardSkeleton() {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold">
-          Top Employees by Attendance
+          Top Virtual Assistants by Attendance
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -581,7 +581,7 @@ export default function AnalyticsPage() {
               </p>
               <p className="text-sm text-muted-foreground/70 mt-1 max-w-sm">
                 There are no sessions in the selected date range. Try selecting a
-                wider range or check back after employees have clocked in.
+                wider range or check back after virtual assistants have clocked in.
               </p>
             </div>
           </CardContent>
@@ -603,7 +603,7 @@ export default function AnalyticsPage() {
                       Attendance Rate Over Time
                     </CardTitle>
                     <Badge variant="secondary" className="text-xs font-normal">
-                      % of employees
+                      % of virtual assistants
                     </Badge>
                   </div>
                 </CardHeader>
@@ -899,7 +899,7 @@ export default function AnalyticsPage() {
                       No team data available
                     </p>
                     <p className="text-xs text-muted-foreground/70 mt-1">
-                      Assign employees to teams to see comparisons.
+                      Assign virtual assistants to teams to see comparisons.
                     </p>
                   </div>
                 </CardContent>
@@ -915,7 +915,7 @@ export default function AnalyticsPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-semibold">
-                    Top Employees by Attendance
+                    Top Virtual Assistants by Attendance
                   </CardTitle>
                   <Badge variant="secondary" className="text-xs font-normal">
                     Top 10
@@ -927,7 +927,7 @@ export default function AnalyticsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">Rank</TableHead>
-                      <TableHead>Employee</TableHead>
+                      <TableHead>Virtual Assistant</TableHead>
                       <TableHead className="text-right">Days Present</TableHead>
                       <TableHead className="hidden sm:table-cell text-right">
                         Avg Hours

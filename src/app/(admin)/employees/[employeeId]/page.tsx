@@ -380,12 +380,12 @@ export default function EmployeeDetailPage({
           href="/employees"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="size-4" /> Back to Employees
+          <ArrowLeft className="size-4" /> Back to Virtual Assistants
         </Link>
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-lg font-medium">Employee not found</p>
+          <p className="text-lg font-medium">Virtual assistant not found</p>
           <p className="text-sm text-muted-foreground mt-1">
-            This employee may have been removed or the link is invalid.
+            This virtual assistant may have been removed or the link is invalid.
           </p>
         </div>
       </div>
@@ -523,7 +523,7 @@ export default function EmployeeDetailPage({
             <div>
               <p className="text-sm font-medium">Change Role</p>
               <p className="text-xs text-muted-foreground">
-                Update this employee&apos;s role in the organization
+                Update this virtual assistant&apos;s role in the organization
               </p>
             </div>
             <Select
@@ -537,7 +537,7 @@ export default function EmployeeDetailPage({
               <SelectContent>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="team_lead">Team Lead</SelectItem>
-                <SelectItem value="employee">Employee</SelectItem>
+                <SelectItem value="employee">Virtual Assistant</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
@@ -553,7 +553,7 @@ export default function EmployeeDetailPage({
               <p className="text-xs text-muted-foreground">
                 {schedules.length === 0
                   ? 'No schedules exist yet — create one on the Schedules page.'
-                  : 'Assign a shift schedule to this employee'}
+                  : 'Assign a shift schedule to this virtual assistant'}
               </p>
             </div>
             <Select
@@ -681,7 +681,7 @@ export default function EmployeeDetailPage({
                 No attendance records yet
               </p>
               <p className="text-xs text-muted-foreground/70 mt-1">
-                Sessions will appear here once this employee clocks in.
+                Sessions will appear here once this virtual assistant clocks in.
               </p>
             </div>
           ) : (
@@ -755,7 +755,7 @@ export default function EmployeeDetailPage({
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
             <DialogDescription>
-              Update employee profile information.
+              Update virtual assistant profile information.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

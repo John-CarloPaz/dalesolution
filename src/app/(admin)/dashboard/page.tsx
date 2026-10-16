@@ -465,14 +465,14 @@ async function WorkforceSection() {
               No active sessions
             </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
-              Employees will appear here once they clock in.
+              Virtual assistants will appear here once they clock in.
             </p>
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
+                <TableHead>Virtual Assistant</TableHead>
                 <TableHead className="hidden md:table-cell">Team</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="hidden sm:table-cell">Clock In</TableHead>
@@ -564,7 +564,7 @@ async function ActivitySection() {
               No recent activity
             </p>
             <p className="text-xs text-muted-foreground/70 mt-1">
-              Activity will show up as employees clock in and out.
+              Activity will show up as virtual assistants clock in and out.
             </p>
           </div>
         ) : (

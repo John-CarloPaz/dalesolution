@@ -11,7 +11,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Owner',
   admin: 'Admin',
   team_lead: 'Team Lead',
-  employee: 'Employee',
+  employee: 'Virtual Assistant',
 };
 
 export const ADMIN_ROLES: Role[] = [ROLES.OWNER, ROLES.ADMIN];

@@ -55,7 +55,7 @@ export default function EmployeeLayout({
             </Avatar>
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">
-                {profile?.full_name ?? 'Employee'}
+                {profile?.full_name ?? 'Virtual Assistant'}
               </p>
               <p className="text-xs text-muted-foreground truncate">
                 {profile?.position ?? profile?.role ?? ''}

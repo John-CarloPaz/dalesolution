@@ -309,7 +309,7 @@ export default function AttendancePage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard
-          label="Total Employees"
+          label="Total VAs"
           value={summary.totalEmployees}
           icon={<Users className="size-5" />}
           color="text-primary"
@@ -403,14 +403,14 @@ export default function AttendancePage() {
               <p className="text-xs text-muted-foreground/70 mt-1">
                 {teamFilter !== 'all' || statusFilter !== 'all'
                   ? 'Try adjusting your filters to see more results.'
-                  : `No employees have clocked in for ${formatDate(selectedDate)}.`}
+                  : `No virtual assistants have clocked in for ${formatDate(selectedDate)}.`}
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead>Virtual Assistant</TableHead>
                   <TableHead className="hidden md:table-cell">Clock In</TableHead>
                   <TableHead className="hidden md:table-cell">Clock Out</TableHead>
                   <TableHead className="hidden sm:table-cell">Duration</TableHead>

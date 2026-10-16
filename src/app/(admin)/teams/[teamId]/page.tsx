@@ -454,7 +454,7 @@ export default function TeamDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead>Virtual Assistant</TableHead>
                   <TableHead className="hidden sm:table-cell">Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="hidden md:table-cell">
@@ -601,15 +601,15 @@ export default function TeamDetailPage() {
           <DialogHeader>
             <DialogTitle>Add Member</DialogTitle>
             <DialogDescription>
-              Select an employee to add to {team.name}.
+              Select a virtual assistant to add to {team.name}.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
-            <Label>Employee</Label>
+            <Label>Virtual Assistant</Label>
             <Select value={addProfileId} onValueChange={(v) => setAddProfileId(v ?? '')}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select an employee" />
+                <SelectValue placeholder="Select a virtual assistant" />
               </SelectTrigger>
               <SelectContent>
                 {availableProfiles.map((p) => (

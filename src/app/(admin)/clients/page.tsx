@@ -452,7 +452,7 @@ export default function ClientsPage() {
             <DialogDescription>
               {editing
                 ? 'Update client details and assignment.'
-                : 'Create a new client and optionally assign them to an employee.'}
+                : 'Create a new client and optionally assign them to a virtual assistant.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -534,7 +534,7 @@ export default function ClientsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                The selected schedule is also assigned to this employee.
+                The selected schedule is also assigned to this virtual assistant.
               </p>
             </div>
             <div className="space-y-1.5">

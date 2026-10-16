@@ -83,7 +83,7 @@ export function OfficeSidebar({
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search employees..."
+            placeholder="Search virtual assistants..."
             className="pl-8 h-8 text-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

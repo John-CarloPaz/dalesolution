@@ -200,7 +200,7 @@ function AcceptInvitationContent() {
   const roleLabels: Record<string, string> = {
     admin: 'Admin',
     team_lead: 'Team Lead',
-    employee: 'Employee',
+    employee: 'Virtual Assistant',
   };
 
   return (
